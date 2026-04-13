@@ -4,11 +4,11 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, Image, StyleSheet, 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getPosts, getStories } from "../../services/api";
-import { useThemeColors } from "../../hooks/useThemeColors";
-import Post from "../../components/post/Post";
-import StoryDialog from "../../components/stories/StoryDialog";
-import UploadStoryDialog from "../../components/stories/UploadStoryDialog";
+import { getPosts, getStories } from "../services/api";
+import { useThemeColors } from "../hooks/useThemeColors";
+import Post from "../components/Post";
+import StoryDialog from "../components/StoryDialog";
+import UploadStoryDialog from "../components/UploadStoryDialog";
 
 const ACCENT = "#7c5cfc";
 
@@ -32,13 +32,13 @@ function StoryBubble({
             {hasRing ? (
                 <View style={[styles.storyRing, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2 }]}>
                     <Image
-                        source={src ? { uri: src } : require("../../static/profile_blank.png")}
+                        source={src ? { uri: src } : require("../assets/profile_blank.png")}
                         style={[styles.storyImg, { width: size, height: size, borderRadius: size / 2 }]}
                     />
                 </View>
             ) : (
                 <Image
-                    source={src ? { uri: src } : require("../../static/profile_blank.png")}
+                    source={src ? { uri: src } : require("../assets/profile_blank.png")}
                     style={[styles.storyImgNoRing, { width: size, height: size, borderRadius: size / 2, borderColor: colors.border }]}
                 />
             )}

@@ -1,15 +1,17 @@
-// app/_layout.tsx
 import { useEffect, useRef, useState } from "react";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import socket from "../services/socket";
 import { getNotificationsCount } from "../services/api";
 import { useGlobalStore } from "../store/store";
 import { useThemeColors } from "../hooks/useThemeColors";
 import VideoCallModal from "../components/VideoCallModal";
-import NavBar from "../components/navbar/NavBar";
+import NavBar from "../components/Navbar";
+
+const AUTH_ROUTES = ["/login", "/register", "/reset-password", "/verify-email"];
 
 type User = {
     id: number;
@@ -27,33 +29,46 @@ export default function RootLayout() {
     const pathname = usePathname();
 
     const currentUserRef = useRef<any>(null);
-    const { user, unreadNotificationsCount, setUnreadNotificationsCount, unreadMessagesCount, setUnreadMessagesCount, postUploading } =
+    const { user, unreadNotificationsCount, setUnreadNotificationsCount, unreadMessagesCount, setUnreadMessagesCount, postUploading, loadUser } =
         useGlobalStore();
 
+    const [authChecked, setAuthChecked] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-    const [pc, setPc] = useState<RTCPeerConnection | null>(null);
-    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [pc, setPc] = useState<any>(null);
+    const [localStream, setLocalStream] = useState<any>(null);
+    const [remoteStream, setRemoteStream] = useState<any>(null);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [callParticipantId, setCallParticipantId] = useState<number | null>(null);
     const [incomingCall, setIncomingCall] = useState<{
         from: number;
-        signal: RTCSessionDescriptionInit;
+        signal: any;
         callerUsername: string;
         callerProfilePicture: string;
     } | null>(null);
 
-    const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
+    const pendingCandidates = useRef<any[]>([]);
     const uploadProgress = useRef(new Animated.Value(0)).current;
 
-    // ── Load current user from AsyncStorage ──
+    const isAuthRoute = AUTH_ROUTES.some(r => pathname.startsWith(r));
+
+    // ── Auth guard ──
     useEffect(() => {
-        const load = async () => {
+        const checkAuth = async () => {
             const raw = await AsyncStorage.getItem("user");
+            const token = await AsyncStorage.getItem("token");
             currentUserRef.current = raw ? JSON.parse(raw) : null;
+
+            if ((!raw || !token) && !isAuthRoute) {
+                router.replace("/login");
+            } else if (raw && token && isAuthRoute) {
+                router.replace("/");
+            }
+            // Load into global store
+            await loadUser();
+            setAuthChecked(true);
         };
-        load();
+        checkAuth();
     }, []);
 
     // ── Animate upload bar ──
@@ -65,14 +80,6 @@ export default function RootLayout() {
             uploadProgress.stopAnimation();
         }
     }, [postUploading]);
-
-    const iceServers = {
-        iceServers: [
-            { urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
-            { urls: "turn:relay1.expressturn.com:3478", username: "efBWO11LZUDOHPDC84", credential: "y0Da1Uz9asLPxFpC" },
-        ],
-        iceCandidatePoolSize: 10,
-    };
 
     // ── Socket registration ──
     useEffect(() => {
@@ -93,9 +100,7 @@ export default function RootLayout() {
     // ── Online users ──
     useEffect(() => {
         socket.on("onlineUsers", (data) => setOnlineUsers(data));
-        return () => {
-            socket.off("onlineUsers");
-        };
+        return () => { socket.off("onlineUsers"); };
     }, []);
 
     // ── Notification count ──
@@ -118,90 +123,28 @@ export default function RootLayout() {
             if (String(data.targetUserId) === String(user.id)) setUnreadNotificationsCount(data.unreadCount);
         };
         socket.on("unreadCountResponse", handler);
-        return () => {
-            socket.off("unreadCountResponse", handler);
-        };
+        return () => { socket.off("unreadCountResponse", handler); };
     }, [user]);
 
     // ── Incoming call ──
     useEffect(() => {
         const handler = (data: any) => setIncomingCall(data);
         socket.on("callReceived", handler);
-        return () => {
-            socket.off("callReceived", handler);
-        };
+        return () => { socket.off("callReceived", handler); };
     }, []);
-
-    // ── ICE candidates ──
-    useEffect(() => {
-        const handler = (data: { candidate: RTCIceCandidateInit }) => {
-            if (pc?.remoteDescription) {
-                pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
-            } else {
-                pendingCandidates.current.push(data.candidate);
-            }
-        };
-        socket.on("iceCandidateReceived", handler);
-        return () => {
-            socket.off("iceCandidateReceived", handler);
-        };
-    }, [pc]);
-
-    // ── Call answered ──
-    useEffect(() => {
-        socket.on("callAnswered", async (data: { signal: RTCSessionDescriptionInit }) => {
-            if (!pc) return;
-            await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
-            pendingCandidates.current.forEach((c) => pc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
-            pendingCandidates.current = [];
-        });
-        return () => {
-            socket.off("callAnswered");
-        };
-    }, [pc]);
 
     // ── End call received ──
     useEffect(() => {
         const handler = () => {
             setIsVideoModalOpen(false);
             setCallParticipantId(null);
-            pc?.close();
             setPc(null);
-            localStream?.getTracks().forEach((t) => t.stop());
             setLocalStream(null);
             setRemoteStream(null);
         };
         socket.on("endCall", handler);
-        return () => {
-            socket.off("endCall", handler);
-        };
-    }, [pc, localStream]);
-
-    const handleAcceptCall = async () => {
-        if (!incomingCall) return;
-        setCallParticipantId(incomingCall.from);
-        setIsVideoModalOpen(true);
-        const newPc = new RTCPeerConnection(iceServers);
-        setPc(newPc);
-        newPc.ontrack = (e) => setRemoteStream(e.streams[0]);
-        newPc.onicecandidate = (e) => {
-            if (e.candidate) socket.emit("iceCandidate", { to: incomingCall.from, candidate: e.candidate });
-        };
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            setLocalStream(stream);
-            stream.getTracks().forEach((t) => newPc.addTrack(t, stream));
-        } catch (err) {
-            console.error(err);
-        }
-        await newPc.setRemoteDescription(new RTCSessionDescription(incomingCall.signal));
-        pendingCandidates.current.forEach((c) => newPc.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
-        pendingCandidates.current = [];
-        const answer = await newPc.createAnswer();
-        await newPc.setLocalDescription(answer);
-        socket.emit("answerCall", { to: incomingCall.from, signal: newPc.localDescription });
-        setIncomingCall(null);
-    };
+        return () => { socket.off("endCall", handler); };
+    }, []);
 
     const handleRejectCall = () => {
         if (incomingCall) socket.emit("endCall", { to: incomingCall.from });
@@ -211,95 +154,106 @@ export default function RootLayout() {
     const handleEndCall = () => {
         if (callParticipantId) {
             socket.emit("endCall", { to: callParticipantId });
-            localStream?.getTracks().forEach((t) => t.stop());
-            remoteStream?.getTracks().forEach((t) => t.stop());
-            pc?.close();
-            setPc(null);
-            setLocalStream(null);
-            setRemoteStream(null);
             setCallParticipantId(null);
         }
         setIsVideoModalOpen(false);
+        setPc(null);
+        setLocalStream(null);
+        setRemoteStream(null);
     };
 
     const currentUser = currentUserRef.current;
 
+    if (!authChecked) return null;
+
     return (
-        <SafeAreaProvider>
-            {/* Upload progress bar */}
-            {postUploading && (
-                <View style={styles.uploadBar}>
-                    <Animated.View
-                        style={[
-                            styles.uploadBarInner,
-                            {
-                                transform: [{ translateX: uploadProgress.interpolate({ inputRange: [0, 1], outputRange: [-300, 300] }) }],
-                            },
-                        ]}
-                    />
-                </View>
-            )}
-
-            {/* Main screens */}
-            <Stack screenOptions={{ headerShown: false }} />
-
-            {/* Bottom / side nav */}
-            <NavBar
-                unreadMessagesCount={unreadMessagesCount}
-                unreadNotificationsCount={unreadNotificationsCount}
-                setUnreadMessagesCount={setUnreadMessagesCount}
-                onlineUsers={onlineUsers}
-                selectedUser={selectedUser}
-                setSelectedUser={setSelectedUser}
-            />
-
-            {/* Incoming call modal */}
-            <Modal visible={!!incomingCall} transparent animationType="fade">
-                <View style={styles.callBackdrop}>
-                    <View style={[styles.callCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <Image
-                            source={
-                                incomingCall?.callerProfilePicture
-                                    ? { uri: incomingCall.callerProfilePicture }
-                                    : require("../static/profile_blank.png")
-                            }
-                            style={styles.callerAvatar}
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                {/* Upload progress bar */}
+                {postUploading && (
+                    <View style={styles.uploadBar}>
+                        <Animated.View
+                            style={[
+                                styles.uploadBarInner,
+                                {
+                                    transform: [{ translateX: uploadProgress.interpolate({ inputRange: [0, 1], outputRange: [-150, 300] }) }],
+                                },
+                            ]}
                         />
-                        <Text style={[styles.callerName, { color: colors.textPrimary }]}>{incomingCall?.callerUsername}</Text>
-                        <Text style={[styles.callerSub, { color: colors.textSecondary }]}>is calling you</Text>
-                        <View style={styles.callActions}>
-                            <TouchableOpacity style={[styles.callBtn, styles.acceptBtn]} onPress={handleAcceptCall}>
-                                <Text style={styles.callBtnText}>Accept</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.callBtn, styles.rejectBtn]} onPress={handleRejectCall}>
-                                <Text style={styles.callBtnText}>Reject</Text>
-                            </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Main screens */}
+                <Stack screenOptions={{ headerShown: false }} />
+
+                {/* Nav bar — only show on non-auth routes */}
+                {!isAuthRoute && (
+                    <NavBar
+                        unreadMessagesCount={unreadMessagesCount}
+                        unreadNotificationsCount={unreadNotificationsCount}
+                        setUnreadMessagesCount={setUnreadMessagesCount}
+                        onlineUsers={onlineUsers}
+                        selectedUser={selectedUser}
+                        setSelectedUser={setSelectedUser}
+                    />
+                )}
+
+                {/* Incoming call modal */}
+                <Modal visible={!!incomingCall} transparent animationType="fade">
+                    <View style={styles.callBackdrop}>
+                        <View style={[styles.callCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Image
+                                source={
+                                    incomingCall?.callerProfilePicture
+                                        ? { uri: incomingCall.callerProfilePicture }
+                                        : require("../assets/profile_blank.png")
+                                }
+                                style={styles.callerAvatar}
+                            />
+                            <Text style={[styles.callerName, { color: colors.textPrimary }]}>{incomingCall?.callerUsername}</Text>
+                            <Text style={[styles.callerSub, { color: colors.textSecondary }]}>is calling you</Text>
+                            <View style={styles.callActions}>
+                                <TouchableOpacity
+                                    style={[styles.callBtn, styles.acceptBtn]}
+                                    onPress={() => {
+                                        if (!incomingCall) return;
+                                        setCallParticipantId(incomingCall.from);
+                                        setIsVideoModalOpen(true);
+                                        setIncomingCall(null);
+                                    }}
+                                >
+                                    <Text style={styles.callBtnText}>Accept</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.callBtn, styles.rejectBtn]} onPress={handleRejectCall}>
+                                    <Text style={styles.callBtnText}>Reject</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
 
-            <VideoCallModal
-                open={isVideoModalOpen}
-                onClose={() => setIsVideoModalOpen(false)}
-                callerId={currentUser?.id}
-                receiverId={callParticipantId || 0}
-                localStream={localStream}
-                remoteStream={remoteStream}
-                pc={pc}
-                handleEndCall={handleEndCall}
-                localUsername={currentUser?.username}
-                localProfilePicture={currentUser?.profile_picture_url}
-                remoteUsername={incomingCall?.callerUsername ?? selectedUser?.username ?? "Remote"}
-                remoteProfilePicture={incomingCall?.callerProfilePicture ?? selectedUser?.profile_picture ?? undefined}
-            />
-        </SafeAreaProvider>
+                <VideoCallModal
+                    open={isVideoModalOpen}
+                    onClose={() => setIsVideoModalOpen(false)}
+                    callerId={currentUser?.id}
+                    receiverId={callParticipantId || 0}
+                    localStream={localStream}
+                    remoteStream={remoteStream}
+                    pc={pc}
+                    handleEndCall={handleEndCall}
+                    localUsername={currentUser?.username}
+                    localProfilePicture={currentUser?.profile_picture_url}
+                    remoteUsername={incomingCall?.callerUsername ?? selectedUser?.username ?? "Remote"}
+                    remoteProfilePicture={incomingCall?.callerProfilePicture ?? selectedUser?.profile_picture ?? undefined}
+                />
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
     );
 }
 
 const styles = StyleSheet.create({
     uploadBar: { position: "absolute", top: 0, left: 0, right: 0, height: 3, zIndex: 1000, overflow: "hidden" },
-    uploadBarInner: { position: "absolute", top: 0, bottom: 0, width: 150, background: "linear-gradient(90deg, #7a60ff, #ff8800)" },
+    uploadBarInner: { position: "absolute", top: 0, bottom: 0, width: 150, backgroundColor: "#7a60ff" },
     callBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "flex-end", padding: 16 },
     callCard: { width: "100%", borderRadius: 20, padding: 24, alignItems: "center", borderWidth: 1 },
     callerAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 12 },
