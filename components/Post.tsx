@@ -11,12 +11,12 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
-  Alert,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Dimensions } from "react-native";
 import {
   deletePost,
   likePost,
@@ -29,10 +29,8 @@ import {
 import { useThemeColors } from "../hooks/useThemeColors";
 import ScrollableCommentsDrawer from "../components/Scrollablecommentsdrawer";
 import socket from "../services/socket";
-import { Dimensions } from "react-native";
 
 const SW = Dimensions.get("window").width;
-
 const ACCENT = "#7c5cfc";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -87,69 +85,54 @@ interface PostProps {
   fetchPosts: () => Promise<void>;
 }
 
-// ── DialogBtn ──────────────────────────────────────────────────────────────────
-function DialogBtn({
+// ── Options sheet button ───────────────────────────────────────────────────────
+function SheetBtn({
   icon,
   label,
   onPress,
-  danger = false,
-  warning = false,
-  muted = false,
-  disabled = false,
+  variant = "default",
 }: {
   icon: React.ReactNode;
   label: string;
   onPress: () => void;
-  danger?: boolean;
-  warning?: boolean;
-  muted?: boolean;
-  disabled?: boolean;
+  variant?: "default" | "danger" | "warning" | "muted";
 }) {
   const colors = useThemeColors();
-  const iconBg = danger || warning ? "rgba(229,57,53,0.08)" : colors.hover;
-  const iconColor =
-    danger || warning
+  const labelColor =
+    variant === "danger"
       ? "#e53935"
-      : muted
-        ? colors.textDisabled
-        : colors.textSecondary;
-  const labelColor = warning
-    ? colors.textPrimary
-    : danger
-      ? "#e53935"
-      : muted
-        ? colors.textDisabled
-        : colors.textSecondary;
+      : variant === "warning"
+        ? "#f59e0b"
+        : variant === "muted"
+          ? colors.textDisabled
+          : colors.textSecondary;
+  const iconBg =
+    variant === "danger"
+      ? "rgba(229,57,53,0.08)"
+      : variant === "warning"
+        ? "rgba(245,158,11,0.08)"
+        : colors.hover;
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      disabled={disabled}
       activeOpacity={0.7}
-      style={[
-        styles.dialogBtn,
-        warning && { backgroundColor: "rgba(229,57,53,0.09)" },
-        disabled && { opacity: 0.4 },
-      ]}
+      style={styles.sheetBtn}
     >
-      <View style={[styles.dialogBtnIcon, { backgroundColor: iconBg }]}>
-        <View style={{ tintColor: iconColor }}>{icon}</View>
+      <View
+        style={[
+          styles.sheetBtnIcon,
+          { backgroundColor: iconBg, borderColor: colors.border },
+        ]}
+      >
+        {icon}
       </View>
-      <Text style={[styles.dialogBtnLabel, { color: labelColor }]}>
-        {label}
-      </Text>
+      <Text style={[styles.sheetBtnLabel, { color: labelColor }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-function DialogDivider() {
-  const colors = useThemeColors();
-  return (
-    <View style={[styles.dialogDivider, { backgroundColor: colors.border }]} />
-  );
-}
-
-// ── Post ───────────────────────────────────────────────────────────────────────
+// ── Main PostCard ──────────────────────────────────────────────────────────────
 const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
   const colors = useThemeColors();
   const router = useRouter();
@@ -158,7 +141,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
   const [commentCount, setCommentCount] = useState(post.comment_count);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [postComments, setPostComments] = useState(post.comments);
-  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(post.liked_by_current_user);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
@@ -169,18 +152,20 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
   );
   const [isSaved, setIsSaved] = useState(post.saved_by_current_user);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [usersModalOpen, setUsersModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<Video>(null);
 
+  // Double tap
   const lastTap = useRef<number>(0);
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const [showHeart, setShowHeart] = useState(false);
 
+  // Like animation
   const likeScale = useRef(new Animated.Value(1)).current;
   const commentInputRef = useRef<TextInput>(null);
 
@@ -192,49 +177,48 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
   }, []);
 
   const isOwner = currentUser?.id === post.user_id;
-
+  const isVideo = post.file_url
+    ? /\.(mp4|mov|webm)$/i.test(post.file_url)
+    : false;
   const filteredUsers = usersList.filter((u) =>
     u.username.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  // ── Double tap like ──
   const handleDoubleTap = async () => {
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected
+    if (now - lastTap.current < 300) {
       setShowHeart(true);
       heartScale.setValue(0);
       heartOpacity.setValue(0);
-
       Animated.sequence([
         Animated.parallel([
           Animated.spring(heartScale, {
             toValue: 1,
-            speed: 20,
-            bounciness: 14,
+            speed: 18,
+            bounciness: 16,
             useNativeDriver: true,
           }),
           Animated.timing(heartOpacity, {
             toValue: 1,
-            duration: 100,
+            duration: 80,
             useNativeDriver: true,
           }),
         ]),
-        Animated.delay(600),
+        Animated.delay(650),
         Animated.parallel([
           Animated.timing(heartScale, {
-            toValue: 1.2,
+            toValue: 1.25,
             duration: 200,
             useNativeDriver: true,
           }),
           Animated.timing(heartOpacity, {
             toValue: 0,
-            duration: 250,
+            duration: 280,
             useNativeDriver: true,
           }),
         ]),
       ]).start(() => setShowHeart(false));
-
       if (!isLiked) await handleLike();
     }
     lastTap.current = now;
@@ -244,7 +228,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
   const animateLike = () => {
     Animated.sequence([
       Animated.spring(likeScale, {
-        toValue: 1.45,
+        toValue: 1.5,
         useNativeDriver: true,
         speed: 50,
       }),
@@ -275,12 +259,12 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
     }
   };
 
-  const handlePaperPlaneClick = async () => {
+  const handleShare = async () => {
     try {
       const res = await getFollowingUsers();
       if (res.success) {
         setUsersList(res.data);
-        setUsersModalOpen(true);
+        setShareModalOpen(true);
       }
     } catch (e) {
       console.error(e);
@@ -294,7 +278,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
       receiverId: user.id,
       postId: post.id,
     });
-    setUsersModalOpen(false);
+    setShareModalOpen(false);
   };
 
   const handleComment = async () => {
@@ -343,7 +327,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
     try {
       const res = await deletePost(post.id);
       if (res?.success) {
-        setOptionsDialogOpen(false);
+        setOptionsOpen(false);
         setConfirmDelete(false);
         fetchPosts();
       }
@@ -374,83 +358,80 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
     }
   };
 
-  // ── Media dimensions ──
-  const isVideo = post.file_url
-    ? /\.(mp4|mov|webm)$/i.test(post.file_url)
-    : false;
-
   return (
     <>
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          {
+            backgroundColor: colors.isDark ? "#000" : "#fff",
+            borderBottomColor: colors.border,
+          },
         ]}
       >
         {/* ── Header ── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push(`/profile/${post.user_id}`)}
-          style={styles.header}
-        >
-          <View style={styles.headerLeft}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.push(`/profile/${post.user_id}`)}
+            activeOpacity={0.8}
+            style={styles.headerLeft}
+          >
             <Image
               source={
                 post.profile_picture
                   ? { uri: post.profile_picture }
                   : require("../assets/profile_blank.png")
               }
-              style={[styles.avatar, { borderColor: colors.border }]}
+              style={styles.avatar}
             />
-            <View>
-              <Text style={[styles.username, { color: colors.textPrimary }]}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={[styles.username, { color: colors.textPrimary }]}
+                numberOfLines={1}
+              >
                 {post.username}
               </Text>
               {!!post.location && (
                 <View style={styles.locationRow}>
-                  <Ionicons
-                    name="location-sharp"
-                    size={10}
-                    color={colors.textDisabled}
-                  />
+                  <Ionicons name="location-sharp" size={10} color={ACCENT} />
                   <Text
                     style={[styles.location, { color: colors.textDisabled }]}
+                    numberOfLines={1}
                   >
                     {post.location}
                   </Text>
                 </View>
               )}
             </View>
-          </View>
+          </TouchableOpacity>
           {isOwner && (
             <TouchableOpacity
-              onPress={() => setOptionsDialogOpen(true)}
-              style={[styles.moreBtn, { backgroundColor: "transparent" }]}
+              onPress={() => setOptionsOpen(true)}
+              style={styles.moreBtn}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="ellipsis-horizontal"
-                size={18}
+                size={20}
                 color={colors.textDisabled}
               />
             </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
 
         {/* ── Media ── */}
         {!!post.file_url && (
-          <View style={styles.mediaContainer}>
+          <View style={styles.mediaWrap}>
             {isVideo ? (
               <Pressable
-                onPress={() => {
-                  if (isPlaying) {
-                    videoRef.current?.pauseAsync();
-                  } else {
-                    videoRef.current?.playAsync();
-                  }
-                }}
+                onPress={() =>
+                  isPlaying
+                    ? videoRef.current?.pauseAsync()
+                    : videoRef.current?.playAsync()
+                }
                 style={{
                   width: "100%",
+                  height: 300,
                   backgroundColor: "#000",
                   justifyContent: "center",
                   alignItems: "center",
@@ -459,62 +440,25 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                 <Video
                   ref={videoRef}
                   source={{ uri: post.file_url }}
-                  style={{
-                    width: "100%",
-                    height: 300,
-                  }}
+                  style={{ width: "100%", height: "100%" }}
                   resizeMode={ResizeMode.CONTAIN}
                   isMuted={isMuted}
                   isLooping
                   useNativeControls={false}
-                  onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-                    if (status.isLoaded) setIsPlaying(status.isPlaying);
+                  onPlaybackStatusUpdate={(s: AVPlaybackStatus) => {
+                    if (s.isLoaded) setIsPlaying(s.isPlaying);
                   }}
                 />
-
-                {/* Play/pause overlay — only show when paused */}
                 {!isPlaying && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "rgba(0,0,0,0.2)",
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 28,
-                        backgroundColor: "rgba(0,0,0,0.55)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons name="play" size={24} color="#fff" />
+                  <View style={styles.videoOverlay}>
+                    <View style={styles.playBtn}>
+                      <Ionicons name="play" size={26} color="#fff" />
                     </View>
                   </View>
                 )}
-
-                {/* Mute button */}
                 <TouchableOpacity
                   onPress={() => setIsMuted((m) => !m)}
-                  style={{
-                    position: "absolute",
-                    bottom: 10,
-                    right: 10,
-                    width: 30,
-                    height: 30,
-                    borderRadius: 15,
-                    backgroundColor: "rgba(0,0,0,0.5)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                  style={styles.muteBtn}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -551,22 +495,15 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                   resizeMode="cover"
                   onLoad={() => setIsImageLoading(false)}
                 />
-
-                {/* ── Double-tap heart overlay ── */}
-                {/* ── Double-tap heart overlay ── */}
                 {showHeart && (
                   <View style={styles.heartOverlay} pointerEvents="none">
                     <Animated.View
-                      style={[
-                        styles.heartIconWrap,
-                        {
-                          opacity: heartOpacity,
-                          transform: [{ scale: heartScale }],
-                        },
-                      ]}
+                      style={{
+                        opacity: heartOpacity,
+                        transform: [{ scale: heartScale }],
+                      }}
                     >
-                      <Ionicons name="heart" size={90} color="#e53935" />
-                      {/* Glow layer behind */}
+                      <Ionicons name="heart" size={88} color="#e53935" />
                       <View style={styles.heartGlow} />
                     </Animated.View>
                   </View>
@@ -580,51 +517,62 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
         <View style={styles.actions}>
           <View style={styles.actionsLeft}>
             {/* Like */}
-            <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+            <View style={styles.actionGroup}>
+              <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+                <TouchableOpacity
+                  onPress={handleLike}
+                  activeOpacity={0.7}
+                  style={styles.actionBtn}
+                >
+                  <Ionicons
+                    name={isLiked ? "heart" : "heart-outline"}
+                    size={23}
+                    color={isLiked ? "#e53935" : colors.textDisabled}
+                  />
+                </TouchableOpacity>
+              </Animated.View>
+              {likeCount > 0 && (
+                <Text
+                  style={[styles.actionCount, { color: colors.textSecondary }]}
+                >
+                  {likeCount}
+                </Text>
+              )}
+            </View>
+
+            {/* Comment */}
+            <View style={styles.actionGroup}>
               <TouchableOpacity
-                onPress={handleLike}
-                activeOpacity={1}
+                onPress={() => {
+                  setDrawerOpen(true);
+                }}
+                activeOpacity={0.7}
                 style={styles.actionBtn}
               >
                 <Ionicons
-                  name={isLiked ? "heart" : "heart-outline"}
+                  name="chatbubble-outline"
                   size={21}
-                  color={isLiked ? "#e53935" : colors.textDisabled}
+                  color={colors.textDisabled}
                 />
               </TouchableOpacity>
-            </Animated.View>
-            <Text style={[styles.actionCount, { color: colors.textDisabled }]}>
-              {likeCount}
-            </Text>
-
-            {/* Comment */}
-            <TouchableOpacity
-              onPress={() => {
-                commentInputRef.current?.focus();
-                setDrawerOpen(true);
-              }}
-              activeOpacity={1}
-              style={styles.actionBtn}
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={19}
-                color={colors.textDisabled}
-              />
-            </TouchableOpacity>
-            <Text style={[styles.actionCount, { color: colors.textDisabled }]}>
-              {commentCount}
-            </Text>
+              {commentCount > 0 && (
+                <Text
+                  style={[styles.actionCount, { color: colors.textSecondary }]}
+                >
+                  {commentCount}
+                </Text>
+              )}
+            </View>
 
             {/* Share */}
             <TouchableOpacity
-              onPress={handlePaperPlaneClick}
-              activeOpacity={1}
+              onPress={handleShare}
+              activeOpacity={0.7}
               style={styles.actionBtn}
             >
               <Ionicons
-                name="send-outline"
-                size={19}
+                name="paper-plane-outline"
+                size={21}
                 color={colors.textDisabled}
               />
             </TouchableOpacity>
@@ -633,29 +581,43 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
           {/* Save */}
           <TouchableOpacity
             onPress={handleSavePost}
-            activeOpacity={1}
+            activeOpacity={0.7}
             style={styles.actionBtn}
           >
             <Ionicons
               name={isSaved ? "bookmark" : "bookmark-outline"}
-              size={21}
-              color={isSaved ? colors.textPrimary : colors.textDisabled}
+              size={23}
+              color={isSaved ? ACCENT : colors.textDisabled}
             />
           </TouchableOpacity>
         </View>
 
-        {/* ── Caption ── */}
-        <View style={styles.caption}>
+        {/* ── Caption + timeAgo ── */}
+        <View style={styles.captionBlock}>
           {!!post.content && (
-            <Text style={[styles.captionText, { color: colors.textSecondary }]}>
+            <Text style={[styles.captionText, { color: colors.textPrimary }]}>
               <Text
                 onPress={() => router.push(`/profile/${post.user_id}`)}
-                style={[styles.captionUsername, { color: colors.textPrimary }]}
+                style={styles.captionUsername}
               >
                 {post.username}{" "}
               </Text>
-              {post.content}
+              <Text style={{ color: colors.textSecondary }}>
+                {post.content}
+              </Text>
             </Text>
+          )}
+          {commentCount > 0 && (
+            <TouchableOpacity
+              onPress={() => setDrawerOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.viewComments, { color: colors.textDisabled }]}
+              >
+                View all {commentCount} comment{commentCount !== 1 ? "s" : ""}
+              </Text>
+            </TouchableOpacity>
           )}
           <Text style={[styles.timeAgo, { color: colors.textDisabled }]}>
             {post.timeAgo}
@@ -663,97 +625,21 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
         </View>
       </View>
 
-      {/* ── Edit Modal ── */}
-      <Modal
-        visible={isEditing}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setIsEditing(false);
-          setEditedContent("");
-        }}
-      >
-        <View style={styles.modalBackdrop}>
-          <View
-            style={[
-              styles.editCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            {!!post.file_url && (
-              <View style={{ position: "relative" }}>
-                <Image
-                  source={{ uri: post.file_url }}
-                  style={styles.editPreview}
-                  resizeMode="cover"
-                />
-                <TouchableOpacity
-                  onPress={() => setIsEditing(false)}
-                  style={styles.editCloseBtn}
-                >
-                  <Ionicons name="close" size={14} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            )}
-            <View
-              style={[
-                styles.editInputRow,
-                {
-                  borderTopColor: colors.border,
-                  borderTopWidth: post.file_url ? 1 : 0,
-                },
-              ]}
-            >
-              <TextInput
-                style={[styles.editInput, { color: colors.textPrimary }]}
-                multiline
-                value={editedContent}
-                onChangeText={setEditedContent}
-                placeholder="Write a caption…"
-                placeholderTextColor={colors.textDisabled}
-              />
-              <TouchableOpacity
-                onPress={handleSaveEdit}
-                disabled={editedContent === post.content}
-                style={[
-                  styles.editSaveBtn,
-                  editedContent === post.content && {
-                    backgroundColor: colors.hover,
-                  },
-                ]}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.editSaveBtnText,
-                    editedContent === post.content && {
-                      color: colors.textDisabled,
-                    },
-                  ]}
-                >
-                  Save
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Options Modal ── */}
+      {/* ── Options modal ── */}
       {isOwner && (
         <Modal
-          visible={optionsDialogOpen}
+          visible={optionsOpen}
           transparent
           animationType="fade"
           onRequestClose={() => {
-            setOptionsDialogOpen(false);
+            setOptionsOpen(false);
             setConfirmDelete(false);
           }}
         >
           <Pressable
             style={styles.modalBackdrop}
             onPress={() => {
-              setOptionsDialogOpen(false);
+              setOptionsOpen(false);
               setConfirmDelete(false);
             }}
           >
@@ -767,7 +653,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                   },
                 ]}
               >
-                <DialogBtn
+                <SheetBtn
                   icon={
                     <MaterialIcons
                       name="edit"
@@ -779,27 +665,30 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                   onPress={() => {
                     setIsEditing(true);
                     setEditedContent(post.content);
-                    setOptionsDialogOpen(false);
-                    setConfirmDelete(false);
+                    setOptionsOpen(false);
                   }}
                 />
-                <DialogBtn
+                <SheetBtn
                   icon={
-                    confirmDelete ? (
-                      <MaterialIcons name="warning" size={16} color="#e53935" />
-                    ) : (
-                      <MaterialIcons name="delete" size={16} color="#e53935" />
-                    )
+                    <MaterialIcons
+                      name={confirmDelete ? "warning" : "delete"}
+                      size={16}
+                      color="#e53935"
+                    />
                   }
-                  label={confirmDelete ? "Confirm delete" : "Delete post"}
+                  label={confirmDelete ? "Tap again to confirm" : "Delete post"}
                   onPress={() =>
                     confirmDelete ? handleDelete() : setConfirmDelete(true)
                   }
-                  danger={!confirmDelete}
-                  warning={confirmDelete}
+                  variant={confirmDelete ? "warning" : "danger"}
                 />
-                <DialogDivider />
-                <DialogBtn
+                <View
+                  style={[
+                    styles.sheetDivider,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <SheetBtn
                   icon={
                     <Ionicons
                       name="close"
@@ -809,10 +698,10 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                   }
                   label="Cancel"
                   onPress={() => {
-                    setOptionsDialogOpen(false);
+                    setOptionsOpen(false);
                     setConfirmDelete(false);
                   }}
-                  muted
+                  variant="muted"
                 />
               </View>
             </Pressable>
@@ -820,20 +709,115 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
         </Modal>
       )}
 
-      {/* ── Share Modal ── */}
+      {/* ── Edit modal ── */}
       <Modal
-        visible={usersModalOpen}
+        visible={isEditing}
         transparent
         animationType="fade"
         onRequestClose={() => {
-          setUsersModalOpen(false);
+          setIsEditing(false);
+        }}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsEditing(false)}
+        >
+          <Pressable>
+            <View
+              style={[
+                styles.editCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              {!!post.file_url && !isVideo && (
+                <View>
+                  <Image
+                    source={{ uri: post.file_url }}
+                    style={styles.editPreview}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.editPreviewOverlay} />
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(false)}
+                    style={styles.editCloseBtn}
+                  >
+                    <Ionicons name="close" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={styles.editBody}>
+                <Text
+                  style={[styles.editLabel, { color: colors.textDisabled }]}
+                >
+                  EDIT CAPTION
+                </Text>
+                <View
+                  style={[
+                    styles.editInputWrap,
+                    {
+                      backgroundColor: colors.hover,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.editInput, { color: colors.textPrimary }]}
+                    multiline
+                    value={editedContent}
+                    onChangeText={setEditedContent}
+                    placeholder="Write a caption…"
+                    placeholderTextColor={colors.textDisabled}
+                    autoFocus
+                  />
+                </View>
+                <View style={styles.editActions}>
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(false)}
+                    style={[styles.editBtn, { borderColor: colors.border }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.editBtnText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSaveEdit}
+                    disabled={editedContent === post.content}
+                    style={[
+                      styles.editBtn,
+                      styles.editSaveBtn,
+                      { opacity: editedContent === post.content ? 0.4 : 1 },
+                    ]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.editSaveBtnText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Share modal ── */}
+      <Modal
+        visible={shareModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShareModalOpen(false);
           setSearchTerm("");
         }}
       >
         <Pressable
           style={styles.modalBackdrop}
           onPress={() => {
-            setUsersModalOpen(false);
+            setShareModalOpen(false);
             setSearchTerm("");
           }}
         >
@@ -844,26 +828,35 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
-              {/* Search */}
+              <Text style={[styles.shareTitle, { color: colors.textPrimary }]}>
+                Share with
+              </Text>
               <View
                 style={[
                   styles.shareSearch,
-                  { borderBottomColor: colors.border },
+                  { backgroundColor: colors.hover, borderColor: colors.border },
                 ]}
               >
+                <Ionicons
+                  name="search-outline"
+                  size={16}
+                  color={colors.textDisabled}
+                />
                 <TextInput
                   style={[
                     styles.shareSearchInput,
                     { color: colors.textPrimary },
                   ]}
-                  placeholder="Search…"
+                  placeholder="Search people…"
                   placeholderTextColor={colors.textDisabled}
                   value={searchTerm}
                   onChangeText={setSearchTerm}
                 />
               </View>
-
-              <ScrollView style={{ maxHeight: 300 }}>
+              <ScrollView
+                style={{ maxHeight: 280 }}
+                showsVerticalScrollIndicator={false}
+              >
                 {filteredUsers.length > 0 ? (
                   filteredUsers.map((user) => (
                     <TouchableOpacity
@@ -878,10 +871,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                             ? { uri: user.profile_picture }
                             : require("../assets/profile_blank.png")
                         }
-                        style={[
-                          styles.shareAvatar,
-                          { borderColor: colors.border },
-                        ]}
+                        style={styles.shareAvatar}
                       />
                       <Text
                         style={[
@@ -891,10 +881,28 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                       >
                         {user.username}
                       </Text>
+                      <View
+                        style={[
+                          styles.shareSendBtn,
+                          {
+                            backgroundColor: ACCENT + "18",
+                            borderColor: ACCENT + "40",
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.shareSendText, { color: ACCENT }]}>
+                          Send
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   ))
                 ) : (
                   <View style={styles.shareEmpty}>
+                    <Ionicons
+                      name="person-outline"
+                      size={32}
+                      color={colors.textDisabled}
+                    />
                     <Text
                       style={[
                         styles.shareEmptyText,
@@ -911,7 +919,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
         </Pressable>
       </Modal>
 
-      {/* ── Comments Drawer ── */}
+      {/* ── Comments drawer ── */}
       <ScrollableCommentsDrawer
         drawerOpen={drawerOpen}
         setDrawerOpen={setDrawerOpen}
@@ -935,76 +943,101 @@ export default PostCard;
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // Card
-  card: { width: "100%", borderBottomWidth: 1, overflow: "hidden" },
+  card: { width: "100%", borderBottomWidth: 0.5 },
 
   // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
+    gap: 10,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 9 },
-  avatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1 },
-  username: { fontWeight: "500", fontSize: 13.6, lineHeight: 18 },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "rgba(124,92,252,0.3)",
+  },
+  username: { fontWeight: "600", fontSize: 13.5 },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 3,
     marginTop: 1,
   },
   location: { fontSize: 10.5 },
   moreBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
 
   // Media
-  mediaContainer: { width: "100%" }, // ← remove backgroundColor: "#000"
-  mediaImage: { width: "100%" }, // height set inline
-  mediaVideo: { width: "100%", aspectRatio: 9 / 16 }, // portrait like Instagram
-  videoPlayOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.25)",
-  },
-  videoPlayBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  videoMuteBtn: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  mediaWrap: { width: "100%" },
+  mediaImage: { width: "100%" },
   imageLoader: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    inset: 0,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
+  },
+  videoOverlay: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+  playBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  muteBtn: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Heart overlay
+  heartOverlay: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heartGlow: {
+    position: "absolute",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "rgba(229,57,53,0.2)",
+    shadowColor: "#e53935",
+    shadowOpacity: 0.9,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 15,
+    zIndex: -1,
   },
 
   // Actions
@@ -1013,143 +1046,143 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
-    paddingTop: 5,
-    paddingBottom: 2,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  actionsLeft: { flexDirection: "row", alignItems: "center" },
+  actionsLeft: { flexDirection: "row", alignItems: "center", gap: 4 },
+  actionGroup: { flexDirection: "row", alignItems: "center", gap: 3 },
   actionBtn: { padding: 6 },
-  actionCount: { fontSize: 12, marginRight: 4, minWidth: 14 },
+  actionCount: { fontSize: 13, fontWeight: "500", marginRight: 8 },
 
   // Caption
-  caption: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2 },
+  captionBlock: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 2,
+    gap: 3,
+  },
   captionText: { fontSize: 13.5, lineHeight: 20 },
-  captionUsername: { fontWeight: "500" },
-  timeAgo: { fontSize: 10.5, marginTop: 5 },
+  captionUsername: { fontWeight: "700", fontSize: 13.5, color: "#f0f0f0" },
+  viewComments: { fontSize: 13, marginTop: 1 },
+  timeAgo: { fontSize: 10.5, marginTop: 2, letterSpacing: 0.2 },
 
-  // Modals shared
+  // Modals
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
   },
 
+  // Options sheet
+  optionsCard: { width: 300, borderRadius: 18, borderWidth: 1, padding: 6 },
+  sheetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  sheetBtnIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetBtnLabel: { fontWeight: "500", fontSize: 14.5 },
+  sheetDivider: { height: 0.5, marginHorizontal: 10, marginVertical: 4 },
+
   // Edit modal
   editCard: {
-    width: "100%",
-    maxWidth: 480,
-    borderRadius: 16,
+    width: "92%",
+    maxWidth: 460,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
   },
   editPreview: { width: "100%", height: 180 },
+  editPreviewOverlay: {
+    position: "absolute",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
   editCloseBtn: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    top: 10,
+    right: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
   },
-  editInputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
+  editBody: { padding: 18, gap: 12 },
+  editLabel: { fontSize: 10.5, fontWeight: "600", letterSpacing: 1 },
+  editInputWrap: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  editInput: {
-    flex: 1,
-    fontFamily: "System",
-    fontSize: 14,
-    minHeight: 36,
-    maxHeight: 120,
-  },
-  editSaveBtn: {
-    backgroundColor: ACCENT,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    flexShrink: 0,
-  },
-  editSaveBtnText: { color: "#fff", fontWeight: "500", fontSize: 13 },
-
-  // Options modal
-  optionsCard: { width: 300, borderRadius: 16, borderWidth: 1, padding: 6 },
-
-  // DialogBtn
-  dialogBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 12,
+  editInput: { fontSize: 14.5, lineHeight: 22, minHeight: 72 },
+  editActions: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
+  editBtn: {
+    paddingHorizontal: 18,
     paddingVertical: 9,
     borderRadius: 10,
+    borderWidth: 1,
   },
-  dialogBtnIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dialogBtnLabel: { fontWeight: "500", fontSize: 14 },
-  dialogDivider: { height: 1, marginHorizontal: 4, marginVertical: 3 },
+  editBtnText: { fontWeight: "500", fontSize: 14 },
+  editSaveBtn: { backgroundColor: ACCENT, borderColor: ACCENT },
+  editSaveBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 
   // Share modal
   shareCard: {
     width: 320,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
+    paddingTop: 16,
+  },
+  shareTitle: {
+    fontWeight: "600",
+    fontSize: 15,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   shareSearch: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  shareSearchInput: { fontSize: 14 },
+  shareSearchInput: { flex: 1, fontSize: 13.5 },
   shareUserRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
-  shareAvatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 1 },
-  shareUsername: { fontWeight: "500", fontSize: 13.5 },
-  shareEmpty: { paddingVertical: 32, alignItems: "center" },
+  shareAvatar: { width: 36, height: 36, borderRadius: 18 },
+  shareUsername: { flex: 1, fontWeight: "500", fontSize: 13.5 },
+  shareSendBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  shareSendText: { fontWeight: "600", fontSize: 12 },
+  shareEmpty: { alignItems: "center", paddingVertical: 36, gap: 8 },
   shareEmptyText: { fontSize: 13 },
-  heartOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heartIconWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  heartGlow: {
-    position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(229,57,53,0.35)",
-    // blur-like effect via multiple shadow layers
-    shadowColor: "#e53935",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 40,
-    elevation: 20,
-    zIndex: -1,
-  },
 });

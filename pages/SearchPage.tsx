@@ -126,8 +126,6 @@ function HistorySkeletonSection({ colors }: { colors: any }) {
               ]}
             />
           </View>
-          {/* delete button skeleton */}
-          <View style={[styles.deleteBtn, { backgroundColor: colors.hover }]} />
         </View>
       ))}
     </SkeletonPulse>
@@ -249,7 +247,7 @@ function UserRow({
             onDelete();
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={[styles.deleteBtn, { backgroundColor: colors.hover }]}
+          style={[styles.deleteBtn]}
           activeOpacity={0.7}
         >
           <Ionicons name="close" size={13} color={colors.textDisabled} />
@@ -260,44 +258,25 @@ function UserRow({
 }
 
 // ── Tag history row ────────────────────────────────────────────────────────────
-function TagHistoryRow({
-  item,
-  onPress,
-  onDelete,
-  colors,
-}: {
-  item: any;
-  onPress: () => void;
-  onDelete: () => void;
-  colors: any;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={styles.userRow}
-    >
-      <View
-        style={[
-          styles.tagIcon,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Ionicons name="pricetag" size={15} color={ACCENT} />
-      </View>
-      <Text style={[styles.userName, { color: colors.textPrimary }]}>
-        #{item.tag}
-      </Text>
-      <TouchableOpacity
-        onPress={onDelete}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[styles.deleteBtn, { backgroundColor: colors.hover }]}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="close" size={13} color={colors.textDisabled} />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
+function TagHistoryRow({ item, onPress, onDelete, colors }: { item: any; onPress: () => void; onDelete: () => void; colors: any }) {
+    return (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.userRow}>
+            <View style={[styles.tagIcon, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Ionicons name="pricetag" size={15} color={ACCENT} />
+            </View>
+            <Text style={[styles.userName, { color: colors.textPrimary, flex: 1 }]}>  {/* ← add flex: 1 */}
+                #{item.tag}
+            </Text>
+            <TouchableOpacity
+                onPress={onDelete}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[styles.deleteBtn]}
+                activeOpacity={0.7}
+            >
+                <Ionicons name="close" size={13} color={colors.textDisabled} />
+            </TouchableOpacity>
+        </TouchableOpacity>
+    );
 }
 
 // ── Hashtag post grid ──────────────────────────────────────────────────────────

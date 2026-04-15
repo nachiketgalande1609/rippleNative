@@ -167,11 +167,14 @@ const MessageInput: React.FC<Props> = ({
           <Ionicons name="attach" size={20} color={colors.textDisabled} />
         </TouchableOpacity>
 
-        {/* Input pill */}
+        {/* Plain single-line input */}
         <View
           style={[
             styles.inputPill,
-            { backgroundColor: colors.hover, borderColor: colors.border },
+            {
+              backgroundColor: colors.isDark ? "#000" : colors.hover,
+              borderColor: colors.border,
+            },
           ]}
         >
           <TextInput
@@ -184,7 +187,7 @@ const MessageInput: React.FC<Props> = ({
               setInputMessage(t);
               handleTyping();
             }}
-            multiline
+            multiline={false}
             returnKeyType="send"
             onSubmitEditing={() => {
               if (canSend) handleSendMessage();
@@ -192,24 +195,34 @@ const MessageInput: React.FC<Props> = ({
           />
         </View>
 
-        {/* Send */}
+        {/* Send text button */}
         <TouchableOpacity
           onPress={() => canSend && handleSendMessage()}
           disabled={isSendingMessage || !canSend}
-          activeOpacity={0.85}
-          style={[
-            styles.sendBtn,
-            { backgroundColor: canSend ? ACCENT : colors.hover },
-          ]}
+          activeOpacity={0.7}
         >
           {isSendingMessage ? (
-            <ActivityIndicator size={14} color="#fff" />
+            <ActivityIndicator size={14} color={ACCENT} />
           ) : (
-            <Ionicons
-              name="send"
-              size={15}
-              color={canSend ? "#fff" : colors.textDisabled}
-            />
+            <TouchableOpacity
+              onPress={() => canSend && handleSendMessage()}
+              disabled={isSendingMessage || !canSend}
+              activeOpacity={0.7}
+              style={[
+                styles.sendBtn,
+                { backgroundColor: canSend ? ACCENT : colors.hover },
+              ]}
+            >
+              {isSendingMessage ? (
+                <ActivityIndicator size={14} color="#fff" />
+              ) : (
+                <Ionicons
+                  name="send"
+                  size={15}
+                  color={canSend ? "#fff" : colors.textDisabled}
+                />
+              )}
+            </TouchableOpacity>
           )}
         </TouchableOpacity>
       </View>
@@ -220,8 +233,7 @@ const MessageInput: React.FC<Props> = ({
 export default MessageInput;
 
 const styles = StyleSheet.create({
-  root: { borderTopWidth: 1, flexShrink: 0 },
-
+  root: { flexShrink: 0, marginBottom: -3 },
   replyPreview: {
     flexDirection: "row",
     alignItems: "center",
@@ -268,31 +280,36 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: "row",
-    alignItems: "center", // ← center align (not flex-end)
-    gap: 8,
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   iconBtn: {
-    width: 34,
-    height: 34,
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
 
   inputPill: {
     flex: 1,
-    borderRadius: 22,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 0, // ← no vertical padding
-    height: 44, // ← fixed height
+    paddingHorizontal: 16,
     justifyContent: "center",
   },
   input: {
+    flex: 1,
     fontSize: 14,
-    height: 44, // ← match pill height
-    textAlignVertical: "center",
+    height: 40,
+    paddingVertical: 0,
+  },
+  sendText: {
+    fontSize: 14,
+    flexShrink: 0,
   },
   sendBtn: {
     width: 36,
@@ -300,5 +317,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
 });

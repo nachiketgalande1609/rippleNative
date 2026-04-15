@@ -76,7 +76,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingRight: 10,
+    paddingLeft: 16
   },
   brandText: {
     fontFamily: "MomoSignature", // ← matches the key in useFonts
