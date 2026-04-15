@@ -14,6 +14,7 @@ import {
     Alert,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deletePost, likePost, addComment, updatePost, savePost, deleteComment, getFollowingUsers } from "../services/api";
@@ -149,6 +150,9 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
     const [usersModalOpen, setUsersModalOpen] = useState(false);
     const [usersList, setUsersList] = useState<User[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
+    const videoRef = useRef<Video>(null);
 
     const likeScale = useRef(new Animated.Value(1)).current;
     const commentInputRef = useRef<TextInput>(null);
@@ -333,25 +337,80 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                 {/* ── Media ── */}
                 {!!post.file_url && (
                     <View style={styles.mediaContainer}>
-                        {isImageLoading && (
-                            <View style={styles.imageLoader}>
-                                <ActivityIndicator size="small" color={colors.textDisabled} />
-                            </View>
+                        // Replace the entire video block:
+                        {isVideo ? (
+                            <Pressable
+                                onPress={() => {
+                                    if (isPlaying) {
+                                        videoRef.current?.pauseAsync();
+                                    } else {
+                                        videoRef.current?.playAsync();
+                                    }
+                                }}
+                                style={{ width: "100%", backgroundColor: "#000", justifyContent: "center", alignItems: "center", }}
+                            >
+                                <Video
+                                    ref={videoRef}
+                                    source={{ uri: post.file_url }}
+                                    style={{
+                                        width: "100%",
+                                        height: 300,
+                                    }}
+                                    resizeMode={ResizeMode.CONTAIN}
+                                    isMuted={isMuted}
+                                    isLooping
+                                    useNativeControls={false}
+                                    onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                                        if (status.isLoaded) setIsPlaying(status.isPlaying);
+                                    }}
+                                />
+
+                                {/* Play/pause overlay — only show when paused */}
+                                {!isPlaying && (
+                                    <View style={{
+                                        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                                        alignItems: "center", justifyContent: "center",
+                                        backgroundColor: "rgba(0,0,0,0.2)",
+                                    }}>
+                                        <View style={{
+                                            width: 56, height: 56, borderRadius: 28,
+                                            backgroundColor: "rgba(0,0,0,0.55)",
+                                            alignItems: "center", justifyContent: "center",
+                                        }}>
+                                            <Ionicons name="play" size={24} color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Mute button */}
+                                <TouchableOpacity
+                                    onPress={() => setIsMuted((m) => !m)}
+                                    style={{
+                                        position: "absolute", bottom: 10, right: 10,
+                                        width: 30, height: 30, borderRadius: 15,
+                                        backgroundColor: "rgba(0,0,0,0.5)",
+                                        alignItems: "center", justifyContent: "center",
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={14} color="#fff" />
+                                </TouchableOpacity>
+                            </Pressable>
+                        ) : (
+                            <Pressable onLongPress={async () => { if (!isLiked) await handleLike(); }}>
+                                {isImageLoading && (
+                                    <View style={styles.imageLoader}>
+                                        <ActivityIndicator size="small" color={colors.textDisabled} />
+                                    </View>
+                                )}
+                                <Image
+                                    source={{ uri: post.file_url }}
+                                    style={[styles.mediaImage, { opacity: isImageLoading ? 0 : 1 }]}
+                                    resizeMode="contain"
+                                    onLoad={() => setIsImageLoading(false)}
+                                />
+                            </Pressable>
                         )}
-                        <Pressable
-                            onPress={() => {/* open image dialog */}}
-                            onLongPress={async () => { if (!isLiked) await handleLike(); }}
-                        >
-                            <Image
-                                source={{ uri: post.file_url }}
-                                style={[
-                                    styles.mediaImage,
-                                    { opacity: isImageLoading ? 0 : 1 },
-                                ]}
-                                resizeMode="contain"
-                                onLoad={() => setIsImageLoading(false)}
-                            />
-                        </Pressable>
                     </View>
                 )}
 
@@ -606,8 +665,25 @@ const styles = StyleSheet.create({
     moreBtn: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
 
     // Media
-    mediaContainer: { width: "100%", minHeight: 260, backgroundColor: "#000", justifyContent: "center" },
+    mediaContainer: { width: "100%", backgroundColor: "#000" },
     mediaImage: { width: "100%", height: 320 },
+    mediaVideo: { width: "100%", aspectRatio: 9 / 16 },  // portrait like Instagram
+    videoPlayOverlay: {
+        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.25)",
+    },
+    videoPlayBtn: {
+        width: 64, height: 64, borderRadius: 32,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        alignItems: "center", justifyContent: "center",
+    },
+    videoMuteBtn: {
+        position: "absolute", bottom: 12, right: 12,
+        width: 32, height: 32, borderRadius: 16,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        alignItems: "center", justifyContent: "center",
+    },
     imageLoader: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", zIndex: 1 },
 
     // Actions

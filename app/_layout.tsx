@@ -10,6 +10,8 @@ import { useGlobalStore } from "../store/store";
 import { useThemeColors } from "../hooks/useThemeColors";
 import VideoCallModal from "../components/VideoCallModal";
 import NavBar from "../components/Navbar";
+import MobileTopBar from "../components/MobileTopBar";
+import { useFonts } from "expo-font";
 
 const AUTH_ROUTES = ["/login", "/register", "/reset-password", "/verify-email"];
 
@@ -27,6 +29,10 @@ export default function RootLayout() {
     const colors = useThemeColors();
     const router = useRouter();
     const pathname = usePathname();
+    const [fontsLoaded] = useFonts({
+        MomoSignature: require("../assets/fonts/MomoSignature.ttf"),
+    });
+
 
     const currentUserRef = useRef<any>(null);
     const { user, unreadNotificationsCount, setUnreadNotificationsCount, unreadMessagesCount, setUnreadMessagesCount, postUploading, loadUser } =
@@ -181,6 +187,10 @@ export default function RootLayout() {
                             ]}
                         />
                     </View>
+                )}
+
+                {!isAuthRoute && (
+                    <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />
                 )}
 
                 {/* Main screens */}
