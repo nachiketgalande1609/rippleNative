@@ -1,17 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-    View,
-    Text,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-} from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { followUser, getNotifications, respondToFollowRequest } from "../services/api";
 import { useGlobalStore } from "../store/store";
 import { useThemeColors } from "../hooks/useThemeColors";
 import NotificationCard from "../components/NotificationCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Notification {
     id: number;
@@ -52,6 +47,7 @@ const NotificationsPage = () => {
     const [activeTab, setActiveTab] = useState<0 | 1>(0);
     const [followRequestAcceptLoading, setFollowRequestAcceptLoading] = useState(false);
     const [followRequestRejectLoading, setFollowRequestRejectLoading] = useState(false);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         AsyncStorage.getItem("user").then((raw) => {
@@ -109,19 +105,16 @@ const NotificationsPage = () => {
 
     const allNotifications = useMemo(
         () => notifications.filter((n) => n.type !== "follow_request" || n.request_status === "accepted"),
-        [notifications]
+        [notifications],
     );
 
-    const followRequests = useMemo(
-        () => notifications.filter((n) => n.type === "follow_request" && n.request_status === "pending"),
-        [notifications]
-    );
+    const followRequests = useMemo(() => notifications.filter((n) => n.type === "follow_request" && n.request_status === "pending"), [notifications]);
 
     const pendingRequestCount = followRequests.filter((n) => n.request_status === "pending").length;
     const visibleNotifications = activeTab === 0 ? allNotifications : followRequests;
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={["top"]}>
+        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]} edges={["top"]}>
             <View style={styles.inner}>
                 {/* Header */}
                 <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>Notifications</Text>
@@ -133,7 +126,12 @@ const NotificationsPage = () => {
                         activeOpacity={0.8}
                         style={[styles.tab, activeTab === 0 && { borderBottomWidth: 2, borderBottomColor: colors.textPrimary }]}
                     >
-                        <Text style={[styles.tabLabel, { color: activeTab === 0 ? colors.textPrimary : colors.textDisabled, fontWeight: activeTab === 0 ? "600" : "500" }]}>
+                        <Text
+                            style={[
+                                styles.tabLabel,
+                                { color: activeTab === 0 ? colors.textPrimary : colors.textDisabled, fontWeight: activeTab === 0 ? "600" : "500" },
+                            ]}
+                        >
                             All
                         </Text>
                     </TouchableOpacity>
@@ -144,7 +142,15 @@ const NotificationsPage = () => {
                         style={[styles.tab, activeTab === 1 && { borderBottomWidth: 2, borderBottomColor: colors.textPrimary }]}
                     >
                         <View style={styles.tabInner}>
-                            <Text style={[styles.tabLabel, { color: activeTab === 1 ? colors.textPrimary : colors.textDisabled, fontWeight: activeTab === 1 ? "600" : "500" }]}>
+                            <Text
+                                style={[
+                                    styles.tabLabel,
+                                    {
+                                        color: activeTab === 1 ? colors.textPrimary : colors.textDisabled,
+                                        fontWeight: activeTab === 1 ? "600" : "500",
+                                    },
+                                ]}
+                            >
                                 Follow Requests
                             </Text>
                             {pendingRequestCount > 0 && (
@@ -157,13 +163,11 @@ const NotificationsPage = () => {
                 </View>
 
                 {/* Content */}
-                <ScrollView
-                    style={{ flex: 1 }}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 100, paddingTop: 4 }}
-                >
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100, paddingTop: 4 }}>
                     {loading ? (
-                        Array(5).fill(0).map((_, i) => <NotificationSkeleton key={i} colors={colors} />)
+                        Array(5)
+                            .fill(0)
+                            .map((_, i) => <NotificationSkeleton key={i} colors={colors} />)
                     ) : visibleNotifications.length === 0 ? (
                         <View style={styles.emptyState}>
                             <Text style={styles.emptyEmoji}>{activeTab === 1 ? "👥" : "🔔"}</Text>
@@ -206,7 +210,16 @@ const styles = StyleSheet.create({
     badgeText: { fontSize: 10.5, fontWeight: "700" },
 
     // Skeleton
-    skeletonCard: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 8, borderRadius: 14, borderWidth: 1 },
+    skeletonCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        marginBottom: 8,
+        borderRadius: 14,
+        borderWidth: 1,
+    },
     skeletonAvatar: { width: 48, height: 48, borderRadius: 24, flexShrink: 0 },
     skeletonLine: { height: 13, borderRadius: 6 },
 

@@ -1,7 +1,5 @@
 import React from "react";
-import {
-    View, Text, TouchableOpacity, StyleSheet, ScrollView,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -15,14 +13,14 @@ const ACCENT = "#7c5cfc";
 
 const menuItems = [
     { label: "Profile Details", icon: "person-outline", key: "profiledetails" },
-    { label: "General",         icon: "settings-outline",   key: "general" },
+    { label: "General", icon: "settings-outline", key: "general" },
     { label: "Account Privacy", icon: "lock-closed-outline", key: "accountprivacy" },
-    { label: "Notifications",   icon: "notifications-outline", key: "notifications" },
-    { label: "Blocked",         icon: "ban-outline",         key: "blocked" },
-    { label: "Comments",        icon: "chatbubble-outline",  key: "comments" },
+    { label: "Notifications", icon: "notifications-outline", key: "notifications" },
+    { label: "Blocked", icon: "ban-outline", key: "blocked" },
+    { label: "Comments", icon: "chatbubble-outline", key: "comments" },
 ] as const;
 
-type SettingKey = typeof menuItems[number]["key"];
+type SettingKey = (typeof menuItems)[number]["key"];
 
 export default function SettingsPage() {
     const colors = useThemeColors();
@@ -98,7 +96,14 @@ const styles = StyleSheet.create({
     root: { flex: 1 },
 
     // Detail view
-    detailBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 54, paddingHorizontal: 12, borderBottomWidth: 1 },
+    detailBar: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        height: 54,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+    },
     backBtn: { width: 36, height: 36, borderRadius: 9, borderWidth: 1, alignItems: "center", justifyContent: "center" },
     detailTitle: { fontWeight: "600", fontSize: 15, letterSpacing: -0.2 },
 

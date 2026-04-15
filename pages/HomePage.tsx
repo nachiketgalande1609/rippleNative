@@ -9,6 +9,7 @@ import { useThemeColors } from "../hooks/useThemeColors";
 import Post from "../components/Post";
 import StoryDialog from "../components/StoryDialog";
 import UploadStoryDialog from "../components/UploadStoryDialog";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ACCENT = "#7c5cfc";
 
@@ -76,6 +77,7 @@ export default function HomePage() {
     const [selfStories, setSelfStories] = useState<any[]>([]);
     const [followingStories, setFollowingStories] = useState<any[]>([]);
     const [fetchingStories, setFetchingStories] = useState(true);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         const load = async () => {
@@ -137,7 +139,7 @@ export default function HomePage() {
     );
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={["top"]}>
+        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]} edges={["top"]}>
             <FlatList
                 data={loadingPosts ? [] : posts}
                 keyExtractor={(item) => String(item.id)}

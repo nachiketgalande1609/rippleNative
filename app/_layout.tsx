@@ -12,6 +12,8 @@ import VideoCallModal from "../components/VideoCallModal";
 import NavBar from "../components/Navbar";
 import MobileTopBar from "../components/MobileTopBar";
 import { useFonts } from "expo-font";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "react-native";
 
 const AUTH_ROUTES = ["/login", "/register", "/reset-password", "/verify-email"];
 
@@ -32,6 +34,7 @@ export default function RootLayout() {
     const [fontsLoaded] = useFonts({
         MomoSignature: require("../assets/fonts/MomoSignature.ttf"),
     });
+    const insets = useSafeAreaInsets();
 
     const currentUserRef = useRef<any>(null);
     const { user, unreadNotificationsCount, setUnreadNotificationsCount, unreadMessagesCount, setUnreadMessagesCount, postUploading, loadUser } =
@@ -182,7 +185,7 @@ export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
-                {/* Upload progress bar */}
+                <StatusBar barStyle={colors.isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
                 {postUploading && (
                     <View style={styles.uploadBar}>
                         <Animated.View
@@ -195,9 +198,11 @@ export default function RootLayout() {
                         />
                     </View>
                 )}
-
-                {!isAuthRoute && <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />}
-
+                {!isAuthRoute && (
+                    <View style={{ paddingTop: insets.top, backgroundColor: colors.surface }}>
+                        <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />
+                    </View>
+                )}
                 {/* Main screens */}
                 <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="home" />
@@ -215,7 +220,6 @@ export default function RootLayout() {
                         setSelectedUser={setSelectedUser}
                     />
                 )}
-
                 {/* Incoming call modal */}
                 <Modal visible={!!incomingCall} transparent animationType="fade">
                     <View style={styles.callBackdrop}>
@@ -249,7 +253,6 @@ export default function RootLayout() {
                         </View>
                     </View>
                 </Modal>
-
                 <VideoCallModal
                     open={isVideoModalOpen}
                     onClose={() => setIsVideoModalOpen(false)}

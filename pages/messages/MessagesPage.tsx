@@ -5,13 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import socket from "../../services/socket";
-import {
-    deleteMessage,
-    getAllMessageUsersData,
-    getMessagesDataForSelectedUser,
-    getMutedUsers,
-    shareChatMedia,
-} from "../../services/api";
+import { deleteMessage, getAllMessageUsersData, getMessagesDataForSelectedUser, getMutedUsers, shareChatMedia } from "../../services/api";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import MessagesUserList from "./MessagesUserList";
 import MessagesTopBar from "./MessagesTopBar";
@@ -61,12 +55,9 @@ interface MessagesPageProps {
     handleVideoCall?: () => void;
 }
 
-const MessagesPage: React.FC<MessagesPageProps> = ({
-    onlineUsers,
-    handleVideoCall = () => {},
-}) => {
+const MessagesPage: React.FC<MessagesPageProps> = ({ onlineUsers, handleVideoCall = () => {} }) => {
     const insets = useSafeAreaInsets();
-    const NAV_BAR_HEIGHT = 60 + insets.bottom;
+    const NAV_BAR_HEIGHT = 66;
     const colors = useThemeColors();
     const router = useRouter();
     const { userId } = useLocalSearchParams<{ userId: string }>();
@@ -87,7 +78,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
 
     // Load current user
     useEffect(() => {
-        AsyncStorage.getItem("user").then((raw) => { if (raw) setCurrentUser(JSON.parse(raw)); });
+        AsyncStorage.getItem("user").then((raw) => {
+            if (raw) setCurrentUser(JSON.parse(raw));
+        });
     }, []);
 
     // Fetch users
@@ -96,11 +89,16 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         try {
             const res = await getAllMessageUsersData();
             setUsers(res.data);
-        } catch (e) { console.error(e); }
-        finally { setLoadingUsers(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingUsers(false);
+        }
     };
 
-    useEffect(() => { fetchUsersData(); }, []);
+    useEffect(() => {
+        fetchUsersData();
+    }, []);
 
     // Navigate to user from route param
     useEffect(() => {
@@ -119,9 +117,12 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         try {
             const res = await getMessagesDataForSelectedUser(uid, offset, limit);
             const reversed = res.data.slice().reverse();
-            setMessages((prev) => offset === 0 ? reversed : [...reversed, ...prev]);
-        } catch (e) { console.error(e); }
-        finally { setInitialMessageLoading(false); }
+            setMessages((prev) => (offset === 0 ? reversed : [...reversed, ...prev]));
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setInitialMessageLoading(false);
+        }
     };
 
     const handleUserClick = (uid: number) => {
@@ -129,7 +130,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         const user = users.find((u) => u.id === uid) || null;
         setSelectedUser(user);
         fetchMessagesForUser(uid);
-        setUsers((prev) => prev.map((u) => u.id === uid ? { ...u, unread_count: 0 } : u));
+        setUsers((prev) => prev.map((u) => (u.id === uid ? { ...u, unread_count: 0 } : u)));
         router.push(`/messages/${uid}`);
     };
 
@@ -139,7 +140,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         socket.on("receiveMessage", (data) => {
             if (data.senderId === currentUser.id) return;
             if (data.senderId !== selectedUser?.id) {
-                setUsers((prev) => prev.map((u) => u.id === data.senderId ? { ...u, unread_count: (u.unread_count || 0) + 1 } : u));
+                setUsers((prev) => prev.map((u) => (u.id === data.senderId ? { ...u, unread_count: (u.unread_count || 0) + 1 } : u)));
                 return;
             }
             setMessages((prev) => {
@@ -157,12 +158,17 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
                     reply_to: data?.replyTo || null,
                     media_width: data?.mediaWidth || null,
                     media_height: data?.mediaHeight || null,
-                    delivered: false, read: false, reactions: [], post: null,
+                    delivered: false,
+                    read: false,
+                    reactions: [],
+                    post: null,
                 };
                 return [...prev, newMsg];
             });
         });
-        return () => { socket.off("receiveMessage"); };
+        return () => {
+            socket.off("receiveMessage");
+        };
     }, [currentUser, selectedUser]);
 
     // Socket — typing
@@ -174,15 +180,20 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         socket.on("stopTyping", (data) => {
             if (data.receiverId === currentUser.id && selectedUser?.id === data.senderId) setTypingUser(null);
         });
-        return () => { socket.off("typing"); socket.off("stopTyping"); };
+        return () => {
+            socket.off("typing");
+            socket.off("stopTyping");
+        };
     }, [currentUser, selectedUser]);
 
     // Socket — messageSaved
     useEffect(() => {
         socket.on("messageSaved", (data: { tempId: number; messageId: number }) => {
-            setMessages((prev) => prev.map((m) => m.message_id === data.tempId ? { ...m, message_id: data.messageId, saved: true } : m));
+            setMessages((prev) => prev.map((m) => (m.message_id === data.tempId ? { ...m, message_id: data.messageId, saved: true } : m)));
         });
-        return () => { socket.off("messageSaved"); };
+        return () => {
+            socket.off("messageSaved");
+        };
     }, []);
 
     // Socket — messageRead
@@ -190,7 +201,9 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         socket.on("messageRead", () => {
             setMessages((prev) => prev.map((m) => ({ ...m, read: true, read_timestamp: new Date().toISOString() })));
         });
-        return () => { socket.off("messageRead"); };
+        return () => {
+            socket.off("messageRead");
+        };
     }, []);
 
     // Emit read
@@ -216,7 +229,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
     const handleSendMessage = async () => {
         if ((!inputMessage.trim() && !selectedFile) || !selectedUser || !currentUser) return;
 
-        let fileUrl = null, fileName = null, fileSize = null, mediaWidth = null, mediaHeight = null;
+        let fileUrl = null,
+            fileName = null,
+            fileSize = null,
+            mediaWidth = null,
+            mediaHeight = null;
 
         if (selectedFile) {
             const formData = new FormData();
@@ -233,7 +250,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
                 fileSize = response?.data?.fileSize;
                 mediaWidth = response?.data?.mediaWidth;
                 mediaHeight = response?.data?.mediaHeight;
-            } catch (e) { console.error(e); setIsSendingMessage(false); return; }
+            } catch (e) {
+                console.error(e);
+                setIsSendingMessage(false);
+                return;
+            }
         }
 
         const tempId = Date.now() + Math.floor(Math.random() * 1000);
@@ -248,10 +269,14 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
             media_width: mediaWidth,
             media_height: mediaHeight,
             timestamp: new Date().toISOString(),
-            saved: false, delivered: false, read: false,
-            delivered_timestamp: null, read_timestamp: null,
+            saved: false,
+            delivered: false,
+            read: false,
+            delivered_timestamp: null,
+            read_timestamp: null,
             reply_to: selectedMessageForReply?.message_id || null,
-            reactions: [], post: null,
+            reactions: [],
+            post: null,
         };
 
         setMessages((prev) => [...prev, newMsg]);
@@ -264,7 +289,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
             senderId: currentUser.id,
             receiverId: selectedUser.id,
             text: inputMessage,
-            fileUrl, fileName, fileSize, mediaWidth, mediaHeight,
+            fileUrl,
+            fileName,
+            fileSize,
+            mediaWidth,
+            mediaHeight,
             replyTo: selectedMessageForReply?.message_id || null,
         });
         socket.emit("stopTyping", { senderId: currentUser.id, receiverId: selectedUser?.id });
@@ -278,35 +307,45 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         try {
             const res = await deleteMessage(msg.message_id);
             if (res?.success) setMessages((prev) => prev.filter((m) => m.message_id !== msg.message_id));
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const handleReaction = (messageId: number, reaction: string) => {
         if (!selectedUser || !currentUser) return;
-        setMessages((prev) => prev.map((m) => {
-            if (m.message_id !== messageId) return m;
-            const prevReactions = Array.isArray(m.reactions) ? m.reactions : [];
-            const existing = prevReactions.find((r) => r.user_id === currentUser.id.toString());
-            const isSame = existing?.reaction === reaction;
-            const updated = isSame
-                ? prevReactions.filter((r) => r.user_id !== currentUser.id.toString())
-                : existing
-                    ? prevReactions.map((r) => r.user_id === currentUser.id.toString() ? { ...r, reaction } : r)
-                    : [...prevReactions, { user_id: currentUser.id.toString(), reaction, username: currentUser.username, profile_picture: currentUser.profile_picture_url }];
-            return { ...m, reactions: updated };
-        }));
+        setMessages((prev) =>
+            prev.map((m) => {
+                if (m.message_id !== messageId) return m;
+                const prevReactions = Array.isArray(m.reactions) ? m.reactions : [];
+                const existing = prevReactions.find((r) => r.user_id === currentUser.id.toString());
+                const isSame = existing?.reaction === reaction;
+                const updated = isSame
+                    ? prevReactions.filter((r) => r.user_id !== currentUser.id.toString())
+                    : existing
+                      ? prevReactions.map((r) => (r.user_id === currentUser.id.toString() ? { ...r, reaction } : r))
+                      : [
+                            ...prevReactions,
+                            {
+                                user_id: currentUser.id.toString(),
+                                reaction,
+                                username: currentUser.username,
+                                profile_picture: currentUser.profile_picture_url,
+                            },
+                        ];
+                return { ...m, reactions: updated };
+            }),
+        );
         socket.emit("send-reaction", { messageId, senderUserId: currentUser.id, reaction });
     };
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }, selectedUser && { paddingBottom: NAV_BAR_HEIGHT }]} edges={["top"]}>
+        <SafeAreaView
+            style={[styles.root, { backgroundColor: colors.bg }, selectedUser && { paddingBottom: NAV_BAR_HEIGHT, marginTop: -insets.top }]}
+            edges={["top"]}
+        >
             {!selectedUser ? (
-                <MessagesUserList
-                    users={users}
-                    onlineUsers={onlineUsers}
-                    handleUserClick={handleUserClick}
-                    loading={loadingUsers}
-                />
+                <MessagesUserList users={users} onlineUsers={onlineUsers} handleUserClick={handleUserClick} loading={loadingUsers} />
             ) : (
                 <KeyboardAvoidingView
                     style={styles.chatView}
@@ -317,7 +356,10 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
                         selectedUser={selectedUser}
                         openVideoCall={handleVideoCall}
                         onMuteToggle={() => {}}
-                        onBack={() => { setSelectedUser(null); setMessages([]); }}
+                        onBack={() => {
+                            setSelectedUser(null);
+                            setMessages([]);
+                        }}
                     />
                     <MessagesContainer
                         selectedUser={selectedUser}

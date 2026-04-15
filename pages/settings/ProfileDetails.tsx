@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
-    Image, ActivityIndicator, Alert, ScrollView,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +27,9 @@ export default function ProfileDetails() {
     const [isModified, setIsModified] = useState(false);
 
     useEffect(() => {
-        AsyncStorage.getItem("user").then((raw) => { if (raw) setCurrentUser(JSON.parse(raw)); });
+        AsyncStorage.getItem("user").then((raw) => {
+            if (raw) setCurrentUser(JSON.parse(raw));
+        });
     }, []);
 
     const fetchProfile = useCallback(async () => {
@@ -41,11 +40,16 @@ export default function ProfileDetails() {
             setProfileData(res.data);
             setNewUsername(res.data.username);
             setNewBio(res.data.bio ?? "");
-        } catch (e) { console.error(e); }
-        finally { setProfileLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setProfileLoading(false);
+        }
     }, [currentUser?.id]);
 
-    useEffect(() => { fetchProfile(); }, [fetchProfile]);
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
 
     useEffect(() => {
         if (profileData) {
@@ -92,7 +96,7 @@ export default function ProfileDetails() {
             setUser(updatedUser);
             await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
             setCurrentUser(updatedUser);
-            setProfileData((p: any) => p ? { ...p, username: newUsername, bio: newBio } : p);
+            setProfileData((p: any) => (p ? { ...p, username: newUsername, bio: newBio } : p));
             setSaveSuccess(true);
         } catch (e: any) {
             setSaveError(e?.response?.data?.error || "Something went wrong.");
@@ -131,21 +135,28 @@ export default function ProfileDetails() {
                 <View style={styles.avatarRow}>
                     <TouchableOpacity onPress={pickAndUploadPhoto} activeOpacity={0.8} style={styles.avatarWrap}>
                         <Image
-                            source={currentUser?.profile_picture_url ? { uri: currentUser.profile_picture_url } : require("../../assets/profile_blank.png")}
+                            source={
+                                currentUser?.profile_picture_url
+                                    ? { uri: currentUser.profile_picture_url }
+                                    : require("../../assets/profile_blank.png")
+                            }
                             style={styles.avatar}
                         />
                         <View style={styles.avatarOverlay}>
-                            {uploadingPic
-                                ? <ActivityIndicator size="small" color="#fff" />
-                                : <Ionicons name="camera" size={16} color="#fff" />
-                            }
+                            {uploadingPic ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={16} color="#fff" />}
                         </View>
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                        <Text style={[styles.avatarName, { color: colors.textPrimary }]} numberOfLines={1}>{newUsername || "—"}</Text>
+                        <Text style={[styles.avatarName, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {newUsername || "—"}
+                        </Text>
                         <Text style={[styles.avatarHint, { color: colors.textDisabled }]}>Tap photo to change it</Text>
                     </View>
-                    <TouchableOpacity onPress={pickAndUploadPhoto} activeOpacity={0.7} style={[styles.changePhotoBtn, { borderColor: colors.border }]}>
+                    <TouchableOpacity
+                        onPress={pickAndUploadPhoto}
+                        activeOpacity={0.7}
+                        style={[styles.changePhotoBtn, { borderColor: colors.border }]}
+                    >
                         <Text style={[styles.changePhotoBtnText, { color: colors.textSecondary }]}>Change photo</Text>
                     </TouchableOpacity>
                 </View>
@@ -161,7 +172,9 @@ export default function ProfileDetails() {
                             value={newUsername}
                             onChangeText={(v) => {
                                 setNewUsername(v);
-                                setUsernameError(!v ? "Username cannot be empty." : /^[a-zA-Z0-9_]+$/.test(v) ? "" : "Only letters, numbers, and underscores.");
+                                setUsernameError(
+                                    !v ? "Username cannot be empty." : /^[a-zA-Z0-9_]+$/.test(v) ? "" : "Only letters, numbers, and underscores.",
+                                );
                             }}
                             style={[styles.inputText, { color: colors.textPrimary }]}
                             placeholderTextColor={colors.textDisabled}
@@ -180,7 +193,13 @@ export default function ProfileDetails() {
                             {bioLen} / {BIO_MAX}
                         </Text>
                     </View>
-                    <View style={[styles.input, styles.bioInput, { backgroundColor: colors.hover, borderColor: bioAtLimit ? "#e53935" : colors.border }]}>
+                    <View
+                        style={[
+                            styles.input,
+                            styles.bioInput,
+                            { backgroundColor: colors.hover, borderColor: bioAtLimit ? "#e53935" : colors.border },
+                        ]}
+                    >
                         <TextInput
                             value={newBio}
                             onChangeText={setNewBio}
@@ -212,19 +231,14 @@ export default function ProfileDetails() {
 
                 {/* Footer */}
                 <View style={[styles.cardFooter, { backgroundColor: colors.hover }]}>
-                    {isModified && !saving && (
-                        <Text style={[styles.unsavedText, { color: colors.textDisabled }]}>Unsaved changes</Text>
-                    )}
+                    {isModified && !saving && <Text style={[styles.unsavedText, { color: colors.textDisabled }]}>Unsaved changes</Text>}
                     <TouchableOpacity
                         onPress={handleSave}
                         disabled={!isModified || saving || !!usernameError}
                         activeOpacity={0.85}
-                        style={[styles.saveBtn, { backgroundColor: ACCENT, opacity: (!isModified || !!usernameError) ? 0.4 : 1 }]}
+                        style={[styles.saveBtn, { backgroundColor: ACCENT, opacity: !isModified || !!usernameError ? 0.4 : 1 }]}
                     >
-                        {saving
-                            ? <ActivityIndicator size="small" color="#fff" />
-                            : <Text style={styles.saveBtnText}>Save changes</Text>
-                        }
+                        {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save changes</Text>}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -247,7 +261,14 @@ const styles = StyleSheet.create({
     avatarRow: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
     avatarWrap: { position: "relative", flexShrink: 0 },
     avatar: { width: 58, height: 58, borderRadius: 29 },
-    avatarOverlay: { position: "absolute", inset: 0, borderRadius: 29, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
+    avatarOverlay: {
+        position: "absolute",
+        inset: 0,
+        borderRadius: 29,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
     avatarName: { fontWeight: "500", fontSize: 14 },
     avatarHint: { fontSize: 12, marginTop: 2 },
     changePhotoBtn: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 0 },
@@ -265,13 +286,30 @@ const styles = StyleSheet.create({
 
     divider: { height: 1, marginTop: 16 },
 
-    banner: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginTop: 12, padding: 10, borderRadius: 10, borderWidth: 1 },
+    banner: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginHorizontal: 16,
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
     errorBanner: { backgroundColor: "rgba(229,57,53,0.08)", borderColor: "rgba(229,57,53,0.3)" },
     successBanner: { backgroundColor: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.3)" },
     bannerErrorText: { color: "#e53935", fontSize: 13 },
     bannerSuccessText: { color: "#22c55e", fontSize: 13 },
 
-    cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingHorizontal: 16, paddingVertical: 12, marginTop: 12 },
+    cardFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginTop: 12,
+    },
     unsavedText: { fontSize: 12, flex: 1 },
     saveBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, minWidth: 120, alignItems: "center" },
     saveBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
