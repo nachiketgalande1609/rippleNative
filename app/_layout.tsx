@@ -33,7 +33,6 @@ export default function RootLayout() {
         MomoSignature: require("../assets/fonts/MomoSignature.ttf"),
     });
 
-
     const currentUserRef = useRef<any>(null);
     const { user, unreadNotificationsCount, setUnreadNotificationsCount, unreadMessagesCount, setUnreadMessagesCount, postUploading, loadUser } =
         useGlobalStore();
@@ -56,7 +55,7 @@ export default function RootLayout() {
     const pendingCandidates = useRef<any[]>([]);
     const uploadProgress = useRef(new Animated.Value(0)).current;
 
-    const isAuthRoute = AUTH_ROUTES.some(r => pathname.startsWith(r));
+    const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
     // ── Auth guard ──
     useEffect(() => {
@@ -65,14 +64,14 @@ export default function RootLayout() {
             const token = await AsyncStorage.getItem("token");
             currentUserRef.current = raw ? JSON.parse(raw) : null;
 
+            await loadUser(); // ← move this BEFORE the redirects
+            setAuthChecked(true);
+
             if ((!raw || !token) && !isAuthRoute) {
                 router.replace("/login");
             } else if (raw && token && isAuthRoute) {
-                router.replace("/");
+                router.replace("/home"); // ← changed from "/"
             }
-            // Load into global store
-            await loadUser();
-            setAuthChecked(true);
         };
         checkAuth();
     }, []);
@@ -106,7 +105,9 @@ export default function RootLayout() {
     // ── Online users ──
     useEffect(() => {
         socket.on("onlineUsers", (data) => setOnlineUsers(data));
-        return () => { socket.off("onlineUsers"); };
+        return () => {
+            socket.off("onlineUsers");
+        };
     }, []);
 
     // ── Notification count ──
@@ -129,14 +130,18 @@ export default function RootLayout() {
             if (String(data.targetUserId) === String(user.id)) setUnreadNotificationsCount(data.unreadCount);
         };
         socket.on("unreadCountResponse", handler);
-        return () => { socket.off("unreadCountResponse", handler); };
+        return () => {
+            socket.off("unreadCountResponse", handler);
+        };
     }, [user]);
 
     // ── Incoming call ──
     useEffect(() => {
         const handler = (data: any) => setIncomingCall(data);
         socket.on("callReceived", handler);
-        return () => { socket.off("callReceived", handler); };
+        return () => {
+            socket.off("callReceived", handler);
+        };
     }, []);
 
     // ── End call received ──
@@ -149,7 +154,9 @@ export default function RootLayout() {
             setRemoteStream(null);
         };
         socket.on("endCall", handler);
-        return () => { socket.off("endCall", handler); };
+        return () => {
+            socket.off("endCall", handler);
+        };
     }, []);
 
     const handleRejectCall = () => {
@@ -189,13 +196,14 @@ export default function RootLayout() {
                     </View>
                 )}
 
-                {!isAuthRoute && (
-                    <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />
-                )}
+                {!isAuthRoute && <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />}
 
                 {/* Main screens */}
-                <Stack screenOptions={{ headerShown: false }} />
-
+                <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="home" />
+                    <Stack.Screen name="login" />
+                    <Stack.Screen name="register" />
+                </Stack>
                 {/* Nav bar — only show on non-auth routes */}
                 {!isAuthRoute && (
                     <NavBar
