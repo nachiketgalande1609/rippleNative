@@ -258,14 +258,6 @@ export default function SearchPage() {
     const debouncedTagQuery = useDebounce(tagQuery, 750);
     const insets = useSafeAreaInsets();
 
-    // Focus input on tab change
-    useEffect(() => {
-        setTimeout(() => {
-            if (activeTab === 0) userInputRef.current?.focus();
-            else tagInputRef.current?.focus();
-        }, 100);
-    }, [activeTab]);
-
     // Load history
     useEffect(() => {
         const load = async () => {

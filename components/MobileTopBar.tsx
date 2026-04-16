@@ -31,7 +31,7 @@ export default function MobileTopBar({ unreadNotificationsCount }: MobileTopBarP
                     activeOpacity={0.7}
                     style={[styles.iconBtn, { backgroundColor: isActive ? colors.selected : "transparent" }]}
                 >
-                    <Ionicons name={isActive ? "heart" : "heart-outline"} size={22} color={isActive ? colors.textPrimary : colors.textSecondary} />
+                    <Ionicons name={isActive ? "heart" : "heart-outline"} size={26} color={isActive ? colors.textPrimary : colors.textSecondary} />
                     {!!unreadNotificationsCount && unreadNotificationsCount > 0 && (
                         <View style={styles.badge}>
                             <Text style={styles.badgeText}>{unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}</Text>

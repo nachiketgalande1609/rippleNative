@@ -360,7 +360,7 @@ const PostDetailPage = () => {
                                 <TouchableOpacity onPress={handleLike} activeOpacity={1} style={styles.actionBtn}>
                                     <Ionicons
                                         name={isLiked ? "heart" : "heart-outline"}
-                                        size={23}
+                                        size={26}
                                         color={isLiked ? "#e53935" : colors.textDisabled}
                                     />
                                 </TouchableOpacity>
@@ -372,13 +372,13 @@ const PostDetailPage = () => {
                                 activeOpacity={1}
                                 style={[styles.actionBtn, { marginLeft: 4 }]}
                             >
-                                <Ionicons name="chatbubble-outline" size={21} color={colors.textDisabled} />
+                                <Ionicons name="chatbubble-outline" size={26} color={colors.textDisabled} />
                             </TouchableOpacity>
                             {commentCount > 0 && <Text style={[styles.actionCount, { color: colors.textSecondary }]}>{commentCount}</Text>}
                         </View>
 
                         <TouchableOpacity onPress={handleSave} activeOpacity={1} style={styles.actionBtn}>
-                            <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={23} color={isSaved ? ACCENT : colors.textDisabled} />
+                            <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={26} color={isSaved ? ACCENT : colors.textDisabled} />
                         </TouchableOpacity>
                     </View>
 

@@ -526,7 +526,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
                 >
                   <Ionicons
                     name={isLiked ? "heart" : "heart-outline"}
-                    size={23}
+                    size={26}
                     color={isLiked ? "#e53935" : colors.textDisabled}
                   />
                 </TouchableOpacity>
@@ -551,7 +551,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
               >
                 <Ionicons
                   name="chatbubble-outline"
-                  size={21}
+                  size={26}
                   color={colors.textDisabled}
                 />
               </TouchableOpacity>
@@ -572,7 +572,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
             >
               <Ionicons
                 name="paper-plane-outline"
-                size={21}
+                size={26}
                 color={colors.textDisabled}
               />
             </TouchableOpacity>
@@ -586,7 +586,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
           >
             <Ionicons
               name={isSaved ? "bookmark" : "bookmark-outline"}
-              size={23}
+              size={26}
               color={isSaved ? ACCENT : colors.textDisabled}
             />
           </TouchableOpacity>
