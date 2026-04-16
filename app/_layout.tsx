@@ -12,6 +12,13 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  RTCPeerConnection,
+  RTCIceCandidate,
+  RTCSessionDescription,
+  mediaDevices,
+  MediaStream,
+} from "../services/webrtc";
 import socket from "../services/socket";
 import { getNotificationsCount } from "../services/api";
 import { useGlobalStore } from "../store/store";
@@ -26,6 +33,24 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 const AUTH_ROUTES = ["/login", "/register", "/reset-password", "/verify-email"];
 
+// ─── ICE servers (mirrors your web app) ──────────────────────────────────────
+const ICE_SERVERS = {
+  iceServers: [
+    {
+      urls: [
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+      ],
+    },
+    {
+      urls: "turn:relay1.expressturn.com:3478",
+      username: "efBWO11LZUDOHPDC84",
+      credential: "y0Da1Uz9asLPxFpC",
+    },
+  ],
+  iceCandidatePoolSize: 10,
+};
+
 type User = {
   id: number;
   username: string;
@@ -36,6 +61,7 @@ type User = {
   unread_count: number;
 };
 
+// ─── Pulsing avatar for incoming-call sheet ───────────────────────────────────
 function PulsingAvatar({
   uri,
   fallback,
@@ -52,7 +78,7 @@ function PulsingAvatar({
     const pulse = (
       scale: Animated.Value,
       opacity: Animated.Value,
-      delay: number,
+      delay: number
     ) =>
       Animated.loop(
         Animated.sequence([
@@ -81,7 +107,7 @@ function PulsingAvatar({
               useNativeDriver: true,
             }),
           ]),
-        ]),
+        ])
       ).start();
 
     pulse(ring1, op1, 0);
@@ -132,75 +158,128 @@ export default function RootLayout() {
 
   const [authChecked, setAuthChecked] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-  const [pc, setPc] = useState<any>(null);
-  const [localStream, setLocalStream] = useState<any>(null);
-  const [remoteStream, setRemoteStream] = useState<any>(null);
+
+  // ── WebRTC state ──────────────────────────────────────────────────────────
+  const [pc, setPc] = useState<RTCPeerConnection | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const pendingCandidates = useRef<any[]>([]);
+  const pcRef = useRef<RTCPeerConnection | null>(null); // always-fresh ref for socket handlers
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [callParticipantId, setCallParticipantId] = useState<number | null>(
-    null,
-  );
+  const [callParticipantId, setCallParticipantId] = useState<number | null>(null);
   const [incomingCall, setIncomingCall] = useState<{
     from: number;
     signal: any;
     callerUsername: string;
     callerProfilePicture: string;
   } | null>(null);
-
-  const pendingCandidates = useRef<any[]>([]);
-  const uploadProgress = useRef(new Animated.Value(0)).current;
-
-  const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
-
-  const handleOpenVideoCall = (userId: number) => {
-    setCallParticipantId(userId);
-    setIsVideoModalOpen(true);
-  };
-
   const [remoteCallInfo, setRemoteCallInfo] = useState<{
     username: string;
     profilePicture?: string;
   } | null>(null);
 
-  // ── Auth guard ──
+  const uploadProgress = useRef(new Animated.Value(0)).current;
+  const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+
+  // ─── Keep pcRef in sync ───────────────────────────────────────────────────
+  useEffect(() => {
+    pcRef.current = pc;
+  }, [pc]);
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /** Get local camera + mic stream */
+  const getLocalStream = async (): Promise<MediaStream> => {
+    const stream = await mediaDevices.getUserMedia({
+      audio: true,
+      video: {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+    return stream as MediaStream;
+  };
+
+  /** Create a new RTCPeerConnection and wire up common handlers */
+  const createPc = (remoteUserId: number): RTCPeerConnection => {
+    const newPc = new RTCPeerConnection(ICE_SERVERS);
+
+    (newPc as any).addEventListener("icecandidate", (event: any) => {
+      if (event.candidate) {
+        socket.emit("iceCandidate", {
+          to: remoteUserId,
+          candidate: event.candidate,
+        });
+      }
+    });
+
+    // react-native-webrtc requires addEventListener for track + connectionstatechange
+    (newPc as any).addEventListener("track", (event: any) => {
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0] as MediaStream);
+      }
+    });
+
+    (newPc as any).addEventListener("connectionstatechange", () => {
+      console.log("[WebRTC] connection state:", (newPc as any).connectionState);
+    });
+
+    return newPc;
+  };
+
+  /** Flush any ICE candidates that arrived before setRemoteDescription */
+  const flushPendingCandidates = async (targetPc: RTCPeerConnection) => {
+    for (const c of pendingCandidates.current) {
+      try {
+        await targetPc.addIceCandidate(new RTCIceCandidate(c));
+      } catch (e) {
+        console.warn("[WebRTC] addIceCandidate (pending) error:", e);
+      }
+    }
+    pendingCandidates.current = [];
+  };
+
+  /** Tear down streams and peer connection cleanly */
+  const cleanupCall = () => {
+    localStream?.getTracks().forEach((t: any) => t.stop());
+    pcRef.current?.close();
+    pcRef.current = null;
+    setPc(null);
+    setLocalStream(null);
+    setRemoteStream(null);
+    pendingCandidates.current = [];
+  };
+
+  // ─── Auth guard ───────────────────────────────────────────────────────────
   useEffect(() => {
     const checkAuth = async () => {
       const raw = await AsyncStorage.getItem("user");
       const token = await AsyncStorage.getItem("token");
       currentUserRef.current = raw ? JSON.parse(raw) : null;
 
-      await loadUser(); // ← move this BEFORE the redirects
+      await loadUser();
       setAuthChecked(true);
 
       if ((!raw || !token) && !isAuthRoute) {
         router.replace("/login");
       } else if (raw && token && isAuthRoute) {
-        router.replace("/home"); // ← changed from "/"
+        router.replace("/home");
       }
     };
     checkAuth();
   }, []);
 
+  // ─── Expose video-call trigger to the store (used by MessagesPage) ─────────
   useEffect(() => {
     setOnVideoCall((userId: number) => {
-      setCallParticipantId(userId);
-      setIsVideoModalOpen(true);
+      handleOutgoingCall(userId);
     });
     return () => setOnVideoCall(null);
-  }, []);
+  }, [selectedUser]); // rebuild when selectedUser changes so closure is fresh
 
-  useEffect(() => {
-    if (!user) return;
-    const handler = (_data: any) => {
-      const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
-      setUnreadNotificationsCount(current + 1);
-    };
-    socket.on("newNotification", handler);
-    return () => {
-      socket.off("newNotification", handler);
-    };
-  }, [user]);
-
-  // ── Animate upload bar ──
+  // ─── Upload bar animation ─────────────────────────────────────────────────
   useEffect(() => {
     if (postUploading) {
       uploadProgress.setValue(0);
@@ -209,14 +288,14 @@ export default function RootLayout() {
           toValue: 1,
           duration: 1500,
           useNativeDriver: true,
-        }),
+        })
       ).start();
     } else {
       uploadProgress.stopAnimation();
     }
   }, [postUploading]);
 
-  // ── Socket registration ──
+  // ─── Socket registration ──────────────────────────────────────────────────
   useEffect(() => {
     const register = async () => {
       const raw = await AsyncStorage.getItem("user");
@@ -232,85 +311,197 @@ export default function RootLayout() {
     };
   }, []);
 
-  // ── Online users ──
+  // ─── Online users ─────────────────────────────────────────────────────────
   useEffect(() => {
     socket.on("onlineUsers", (data) => setOnlineUsers(data));
-    return () => {
-      socket.off("onlineUsers");
-    };
+    return () => { socket.off("onlineUsers"); };
   }, []);
 
-  // ── Notification count ──
-  useEffect(() => {
+  // ─── Notification count ───────────────────────────────────────────────────
+   useEffect(() => {
     if (!user) return;
-    getNotificationsCount()
-      .then((res) => {
-        if (res?.success) {
-          setUnreadNotificationsCount(res.data.unread_notifications);
-          setUnreadMessagesCount(res.data.unread_messages);
-        }
-      })
-      .catch(console.error);
+    const handler = (_data: any) => {
+      const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
+      setUnreadNotificationsCount(current + 1);
+    };
+    socket.on("newNotification", handler);
+    return () => {
+      socket.off("newNotification", handler);
+    };
   }, [user]);
 
-  // ── Unread count socket ──
   useEffect(() => {
     if (!user) return;
     const handler = () => {
-      console.log("Notification Received");
-
       const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
       setUnreadNotificationsCount(current + 1);
     };
     socket.on("unreadCountResponse", handler);
-    return () => {
-      socket.off("unreadCountResponse", handler);
-    };
+    return () => { socket.off("unreadCountResponse", handler); };
   }, [user]);
 
-  // ── Incoming call ──
+  useEffect(() => {
+    if (!user) return;
+    const handler = () => {
+      const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
+      setUnreadNotificationsCount(current + 1);
+    };
+    socket.on("newNotification", handler);
+    return () => { socket.off("newNotification", handler); };
+  }, [user]);
+
+  // ─── Incoming call ────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (data: any) => setIncomingCall(data);
     socket.on("callReceived", handler);
-    return () => {
-      socket.off("callReceived", handler);
-    };
+    return () => { socket.off("callReceived", handler); };
   }, []);
 
-  // ── End call received ──
+  // ─── ICE candidate received ───────────────────────────────────────────────
+  // Uses pcRef so the handler always sees the latest pc instance
+  useEffect(() => {
+    const handler = async (data: { candidate: any }) => {
+      const activePc = pcRef.current;
+      if (!activePc) return;
+      if (activePc.remoteDescription) {
+        try {
+          await activePc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } catch (e) {
+          console.warn("[WebRTC] addIceCandidate error:", e);
+        }
+      } else {
+        // Buffer until remote description is set
+        pendingCandidates.current.push(data.candidate);
+      }
+    };
+    socket.on("iceCandidateReceived", handler);
+    return () => { socket.off("iceCandidateReceived", handler); };
+  }, []);
+
+  // ─── Call answered (caller receives the callee's answer) ──────────────────
+  useEffect(() => {
+    const handler = async (data: { signal: any }) => {
+      const activePc = pcRef.current;
+      if (!activePc) return;
+      try {
+        await activePc.setRemoteDescription(new RTCSessionDescription(data.signal));
+        await flushPendingCandidates(activePc);
+      } catch (e) {
+        console.error("[WebRTC] setRemoteDescription (answer) error:", e);
+      }
+    };
+    socket.on("callAnswered", handler);
+    return () => { socket.off("callAnswered", handler); };
+  }, []);
+
+  // ─── Remote end call ──────────────────────────────────────────────────────
   useEffect(() => {
     const handler = () => {
+      cleanupCall();
       setIsVideoModalOpen(false);
       setCallParticipantId(null);
-      setPc(null);
-      setLocalStream(null);
-      setRemoteStream(null);
+      setRemoteCallInfo(null);
     };
     socket.on("endCall", handler);
-    return () => {
-      socket.off("endCall", handler);
-    };
+    return () => { socket.off("endCall", handler); };
   }, []);
 
+  // ─── CALLER: initiate outgoing call ───────────────────────────────────────
+  const handleOutgoingCall = async (userId: number) => {
+    const currentUser = currentUserRef.current;
+    if (!currentUser) return;
+
+    setCallParticipantId(userId);
+    setIsVideoModalOpen(true);
+
+    const newPc = createPc(userId);
+    pcRef.current = newPc;
+    setPc(newPc);
+
+    try {
+      const stream = await getLocalStream();
+      setLocalStream(stream);
+      stream.getTracks().forEach((track: any) => newPc.addTrack(track, stream));
+
+      const offer = await newPc.createOffer({});
+      await newPc.setLocalDescription(offer);
+
+      socket.emit("callUser", {
+        from: currentUser.id,
+        to: userId,
+        signal: newPc.localDescription,
+        callerUsername: currentUser.username,
+        callerProfilePicture: currentUser.profile_picture_url,
+      });
+    } catch (err) {
+      console.error("[WebRTC] handleOutgoingCall error:", err);
+      cleanupCall();
+      setIsVideoModalOpen(false);
+      setCallParticipantId(null);
+    }
+  };
+
+  // ─── CALLEE: accept incoming call ────────────────────────────────────────
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+
+    setRemoteCallInfo({
+      username: incomingCall.callerUsername,
+      profilePicture: incomingCall.callerProfilePicture,
+    });
+    setCallParticipantId(incomingCall.from);
+    setIsVideoModalOpen(true);
+
+    const newPc = createPc(incomingCall.from);
+    pcRef.current = newPc;
+    setPc(newPc);
+
+    // Capture the incoming signal before clearing state
+    const incomingSignal = incomingCall.signal;
+    const callerId = incomingCall.from;
+    setIncomingCall(null);
+
+    try {
+      const stream = await getLocalStream();
+      setLocalStream(stream);
+      stream.getTracks().forEach((track: any) => newPc.addTrack(track, stream));
+
+      await newPc.setRemoteDescription(new RTCSessionDescription(incomingSignal));
+      await flushPendingCandidates(newPc);
+
+      const answer = await newPc.createAnswer();
+      await newPc.setLocalDescription(answer);
+
+      socket.emit("answerCall", {
+        to: callerId,
+        signal: newPc.localDescription,
+      });
+    } catch (err) {
+      console.error("[WebRTC] handleAcceptCall error:", err);
+      cleanupCall();
+      setIsVideoModalOpen(false);
+      setCallParticipantId(null);
+    }
+  };
+
+  // ─── Reject incoming call ─────────────────────────────────────────────────
   const handleRejectCall = () => {
     if (incomingCall) socket.emit("endCall", { to: incomingCall.from });
     setIncomingCall(null);
   };
 
+  // ─── End active call ──────────────────────────────────────────────────────
   const handleEndCall = () => {
     if (callParticipantId) {
       socket.emit("endCall", { to: callParticipantId });
-      setCallParticipantId(null);
     }
+    cleanupCall();
     setIsVideoModalOpen(false);
-    setRemoteCallInfo(null); // ← add this
-    setPc(null);
-    setLocalStream(null);
-    setRemoteStream(null);
+    setCallParticipantId(null);
+    setRemoteCallInfo(null);
   };
 
   const currentUser = currentUserRef.current;
-
   if (!authChecked) return null;
 
   return (
@@ -321,6 +512,8 @@ export default function RootLayout() {
           backgroundColor="transparent"
           translucent
         />
+
+        {/* Upload progress bar */}
         {postUploading && (
           <View style={styles.uploadBar}>
             <Animated.View
@@ -340,6 +533,7 @@ export default function RootLayout() {
             />
           </View>
         )}
+
         {!isAuthRoute && (
           <View
             style={{ paddingTop: insets.top, backgroundColor: colors.surface }}
@@ -347,12 +541,14 @@ export default function RootLayout() {
             <MobileTopBar unreadNotificationsCount={unreadNotificationsCount} />
           </View>
         )}
+
         {/* Main screens */}
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="home" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
         </Stack>
+
         {/* Nav bar — only show on non-auth routes */}
         {!isAuthRoute && (
           <NavBar
@@ -362,34 +558,26 @@ export default function RootLayout() {
             onlineUsers={onlineUsers}
             selectedUser={selectedUser}
             setSelectedUser={setSelectedUser}
-            onVideoCall={handleOpenVideoCall}
+            onVideoCall={(userId: number) => handleOutgoingCall(userId)}
           />
         )}
-        {/* Incoming call modal */}
+
+        {/* ── Incoming call bottom sheet ── */}
         <Modal visible={!!incomingCall} transparent animationType="slide">
           <View style={styles.callBackdrop}>
-            {/* Blurred/dimmed tap-to-dismiss area */}
             <View style={{ flex: 1 }} />
-
             <View
               style={[
                 styles.callCard,
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
-              {/* Drag handle */}
-              <View
-                style={[styles.dragHandle, { backgroundColor: colors.border }]}
-              />
+              <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
 
-              {/* Caller info */}
-              <Text
-                style={[styles.incomingLabel, { color: colors.textSecondary }]}
-              >
+              <Text style={[styles.incomingLabel, { color: colors.textSecondary }]}>
                 Incoming video call
               </Text>
 
-              {/* Pulsing avatar */}
               <PulsingAvatar
                 uri={incomingCall?.callerProfilePicture}
                 fallback={require("../assets/profile_blank.png")}
@@ -399,7 +587,6 @@ export default function RootLayout() {
                 {incomingCall?.callerUsername}
               </Text>
 
-              {/* Action buttons */}
               <View style={styles.callActions}>
                 {/* Reject */}
                 <View style={styles.callBtnWrap}>
@@ -410,12 +597,7 @@ export default function RootLayout() {
                   >
                     <MaterialIcons name="call-end" size={28} color="#fff" />
                   </TouchableOpacity>
-                  <Text
-                    style={[
-                      styles.callBtnLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
+                  <Text style={[styles.callBtnLabel, { color: colors.textSecondary }]}>
                     Decline
                   </Text>
                 </View>
@@ -424,26 +606,12 @@ export default function RootLayout() {
                 <View style={styles.callBtnWrap}>
                   <TouchableOpacity
                     style={[styles.callBtn, styles.acceptBtn]}
-                    onPress={() => {
-                      if (!incomingCall) return;
-                      setRemoteCallInfo({
-                        username: incomingCall.callerUsername,
-                        profilePicture: incomingCall.callerProfilePicture,
-                      });
-                      setCallParticipantId(incomingCall.from);
-                      setIsVideoModalOpen(true);
-                      setIncomingCall(null);
-                    }}
+                    onPress={handleAcceptCall}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="videocam" size={26} color="#fff" />
                   </TouchableOpacity>
-                  <Text
-                    style={[
-                      styles.callBtnLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
+                  <Text style={[styles.callBtnLabel, { color: colors.textSecondary }]}>
                     Accept
                   </Text>
                 </View>
@@ -451,6 +619,8 @@ export default function RootLayout() {
             </View>
           </View>
         </Modal>
+
+        {/* ── Active video call modal ── */}
         <VideoCallModal
           open={isVideoModalOpen}
           onClose={() => setIsVideoModalOpen(false)}
@@ -487,7 +657,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     borderWidth: 0.5,
     paddingTop: 12,
-    paddingBottom: 44, // accounts for home indicator
+    paddingBottom: 44,
     paddingHorizontal: 24,
     alignItems: "center",
     gap: 8,
@@ -527,7 +697,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 32,
   },
-  // Remove callerSub since we moved it to incomingLabel
   callActions: {
     flexDirection: "row",
     gap: 48,

@@ -18,7 +18,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const RED = "#c0392b";
-const BOTTOM_BAR_HEIGHT = 140; // controls height so PiP stays above it
+const BOTTOM_BAR_HEIGHT = 140;
 
 interface ChatMessage {
   id: number;
@@ -65,6 +65,7 @@ function getInitials(name: string): string {
     .join("");
 }
 
+// ─── Small reusable control button ───────────────────────────────────────────
 function CtrlBtn({
   onPress,
   off = false,
@@ -82,7 +83,7 @@ function CtrlBtn({
       activeOpacity={0.75}
       style={[
         styles.ctrlBtn,
-        off    && styles.ctrlBtnOff,
+        off && styles.ctrlBtnOff,
         active && styles.ctrlBtnActive,
       ]}
     >
@@ -106,10 +107,54 @@ function CtrlCol({
   );
 }
 
+// ─── Avatar placeholder shown when camera is off / stream absent ──────────────
+function AvatarPlaceholder({
+  profilePicture,
+  initials,
+  label,
+  size = 92,
+}: {
+  profilePicture?: string;
+  initials: string;
+  label?: string;
+  size?: number;
+}) {
+  return (
+    <View style={styles.placeholderWrap}>
+      {profilePicture ? (
+        <Image
+          source={{ uri: profilePicture }}
+          style={[
+            styles.placeholderAvatar,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
+        />
+      ) : (
+        <View
+          style={[
+            styles.placeholderInitials,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
+        >
+          <Text
+            style={[styles.placeholderInitialsText, { fontSize: size * 0.33 }]}
+          >
+            {initials}
+          </Text>
+        </View>
+      )}
+      {label && <Text style={styles.placeholderLabel}>{label}</Text>}
+    </View>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 const VideoCallModal: React.FC<VideoCallModalProps> = ({
   open,
   onClose,
   handleEndCall,
+  localStream,
+  remoteStream,
   localUsername = "You",
   localProfilePicture,
   remoteUsername = "Remote",
@@ -118,47 +163,49 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
   const insets = useSafeAreaInsets();
   const { width: SW, height: SH } = Dimensions.get("window");
 
-  const localInitials  = getInitials(localUsername);
+  const localInitials = getInitials(localUsername);
   const remoteInitials = getInitials(remoteUsername);
 
   const PIP_W = 100;
   const PIP_H = 140;
-  // PiP starts above the bottom bar, snug to the right edge
   const pipInitX = SW - PIP_W - 16;
   const pipInitY = SH - BOTTOM_BAR_HEIGHT - PIP_H - 16;
 
-  const [isMuted,     setIsMuted]     = useState(false);
-  const [isVideoOn,   setIsVideoOn]   = useState(true);
-  const [isSpeaker,   setIsSpeaker]   = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isSpeaker, setIsSpeaker] = useState(true);
   const [callSeconds, setCallSeconds] = useState(0);
-  const [toast,       setToast]       = useState<string | null>(null);
-  const [isSwapped,   setIsSwapped]   = useState(false);
-  const [chatOpen,    setChatOpen]    = useState(false);
-  const [messages,    setMessages]    = useState<ChatMessage[]>([]);
-  const [chatText,    setChatText]    = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [isSwapped, setIsSwapped] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState("");
 
-  const toastOpacity  = useRef(new Animated.Value(0)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
   const chatScrollRef = useRef<ScrollView>(null);
+  // Web-only: video element refs for assigning srcObject
+  const mainVideoRef = useRef<HTMLVideoElement>(null);
+  const pipVideoRef = useRef<HTMLVideoElement>(null);
 
   const pipX = useRef(new Animated.Value(pipInitX)).current;
   const pipY = useRef(new Animated.Value(pipInitY)).current;
 
+  // ─── PiP drag-to-snap ────────────────────────────────────────────────────
   const pipPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder:  () => true,
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         (pipX as any).stopAnimation();
         (pipY as any).stopAnimation();
       },
       onPanResponderMove: (_, g) => {
         pipX.setValue(Math.max(0, Math.min(SW - PIP_W, g.moveX - PIP_W / 2)));
-        // clamp so PiP never enters the bottom bar
         pipY.setValue(
           Math.max(
             insets.top + 60,
-            Math.min(SH - BOTTOM_BAR_HEIGHT - PIP_H - 8, g.moveY - PIP_H / 2)
-          )
+            Math.min(SH - BOTTOM_BAR_HEIGHT - PIP_H - 8, g.moveY - PIP_H / 2),
+          ),
         );
       },
       onPanResponderRelease: (_, g) => {
@@ -172,15 +219,44 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
           Animated.spring(pipY, { toValue: snapY, useNativeDriver: false }),
         ]).start();
       },
-    })
+    }),
   ).current;
 
+  // ─── Call timer ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!open) { setCallSeconds(0); return; }
+    if (!open) {
+      setCallSeconds(0);
+      return;
+    }
     const t = setInterval(() => setCallSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [open]);
 
+  // ─── Which stream goes in the main pane vs the PiP ───────────────────────
+  // Default: remote = main, local = PiP. Swapped = local = main, remote = PiP.
+  const mainStream = isSwapped ? localStream : remoteStream;
+  const pipStream = isSwapped ? remoteStream : localStream;
+  const mainName = isSwapped ? localUsername : remoteUsername;
+  const mainPicture = isSwapped ? localProfilePicture : remoteProfilePicture;
+  const mainInitials = isSwapped ? localInitials : remoteInitials;
+  const pipName = isSwapped ? remoteUsername : localUsername;
+  const pipPicture = isSwapped ? remoteProfilePicture : localProfilePicture;
+  const pipInitials = isSwapped ? remoteInitials : localInitials;
+
+  // ─── Web: bind streams to <video> srcObject ─────────────────────────────────
+  useEffect(() => {
+    if (mainVideoRef.current && mainStream) {
+      mainVideoRef.current.srcObject = mainStream as unknown as MediaStream;
+    }
+  }, [mainStream, isSwapped]);
+
+  useEffect(() => {
+    if (pipVideoRef.current && pipStream) {
+      pipVideoRef.current.srcObject = pipStream as unknown as MediaStream;
+    }
+  }, [pipStream, isSwapped]);
+
+  // ─── Toast helper ─────────────────────────────────────────────────────────
   const showToast = useCallback(
     (msg: string) => {
       setToast(msg);
@@ -194,64 +270,56 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
         }),
       ]).start(() => setToast(null));
     },
-    [toastOpacity]
+    [toastOpacity],
   );
 
-  const toggleMic   = () => { setIsMuted(v   => !v); showToast(!isMuted   ? "Mic muted"  : "Mic on");     };
-  const toggleVideo = () => { setIsVideoOn(v => !v); showToast(!isVideoOn ? "Camera off" : "Camera on");  };
-  const toggleSpk   = () => { setIsSpeaker(v => !v); showToast(!isSpeaker ? "Earpiece"   : "Speaker on"); };
+  // ─── Control handlers ─────────────────────────────────────────────────────
+  const toggleMic = () => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach((t: any) => {
+        t.enabled = isMuted; // flip: if currently muted → enable
+      });
+    }
+    setIsMuted((v) => !v);
+    showToast(!isMuted ? "Mic muted" : "Mic on");
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach((t: any) => {
+        t.enabled = !isVideoOn; // flip
+      });
+    }
+    setIsVideoOn((v) => !v);
+    showToast(!isVideoOn ? "Camera off" : "Camera on");
+  };
+
+  const toggleSpk = () => {
+    setIsSpeaker((v) => !v);
+    showToast(!isSpeaker ? "Earpiece" : "Speaker on");
+  };
 
   const sendMessage = () => {
     const text = chatText.trim();
     if (!text) return;
     setMessages((prev) => [
       ...prev,
-      { id: Date.now(), sender: "You", text, isSelf: true, timestamp: nowTime() },
+      {
+        id: Date.now(),
+        sender: "You",
+        text,
+        isSelf: true,
+        timestamp: nowTime(),
+      },
     ]);
     setChatText("");
-    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(
+      () => chatScrollRef.current?.scrollToEnd({ animated: true }),
+      100,
+    );
   };
 
   if (!open) return null;
-
-  const RemoteFeed = () => (
-    <View style={styles.remoteFeed}>
-      {remoteProfilePicture ? (
-        <Image source={{ uri: remoteProfilePicture }} style={styles.remoteAvatar} />
-      ) : (
-        <View style={styles.remoteInitials}>
-          <Text style={styles.remoteInitialsText}>{remoteInitials}</Text>
-        </View>
-      )}
-      <Text style={styles.remoteName}>{remoteUsername}</Text>
-      <Text style={styles.remoteStatus}>
-        {isVideoOn ? "Connected" : "Camera off"}
-      </Text>
-    </View>
-  );
-
-  const LocalPiP = () => (
-    <View style={styles.pipInner}>
-      {localProfilePicture ? (
-        <Image
-          source={{ uri: localProfilePicture }}
-          style={{ width: 42, height: 42, borderRadius: 21 }}
-        />
-      ) : (
-        <View style={styles.pipInitials}>
-          <Text style={styles.pipInitialsText}>{localInitials}</Text>
-        </View>
-      )}
-      {isMuted && (
-        <View style={styles.pipMicBadge}>
-          <Ionicons name="mic-off" size={9} color="#fff" />
-        </View>
-      )}
-      <View style={styles.pipLabelWrap}>
-        <Text style={styles.pipLabelText}>{localUsername}</Text>
-      </View>
-    </View>
-  );
 
   return (
     <Modal
@@ -261,29 +329,58 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
       statusBarTranslucent
     >
       <View style={styles.root}>
+        {/* ── Main feed (full-screen) ── */}
+        {mainStream ? (
+          // @ts-ignore — web only
+          <video
+            ref={mainVideoRef}
+            autoPlay
+            playsInline
+            muted={isSwapped} // mute local feed to avoid echo
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transform: isSwapped ? "scaleX(-1)" : "none",
+            }}
+          />
+        ) : (
+          // No stream yet — show avatar placeholder
+          <View style={[StyleSheet.absoluteFill, styles.mainPlaceholderBg]}>
+            <AvatarPlaceholder
+              profilePicture={mainPicture}
+              initials={mainInitials}
+              label={`${mainName} · ${isSwapped ? (isVideoOn ? "Camera on" : "Camera off") : "Camera off"}`}
+            />
+          </View>
+        )}
 
-        {/* Background / remote feed — full screen behind everything */}
-        <RemoteFeed />
-
-        {/* Top bar — floats over video */}
+        {/* ── Top bar ── */}
         <View style={[styles.topBar, { top: insets.top + 12 }]}>
           <View style={styles.timerPill}>
             <View style={styles.recDot} />
             <Text style={styles.timerText}>{formatTime(callSeconds)}</Text>
           </View>
           <View style={styles.signalPill}>
-            <Ionicons name="cellular" size={12} color="rgba(255,255,255,0.3)" />
+            <Ionicons name="cellular" size={12} color="rgba(255,255,255,0.5)" />
           </View>
         </View>
 
-        {/* Toast */}
+        {/* ── Toast ── */}
         {toast && (
-          <Animated.View style={[styles.toast, { opacity: toastOpacity, top: insets.top + 60 }]}>
+          <Animated.View
+            style={[
+              styles.toast,
+              { opacity: toastOpacity, top: insets.top + 60 },
+            ]}
+          >
             <Text style={styles.toastText}>{toast}</Text>
           </Animated.View>
         )}
 
-        {/* PiP — draggable, clamped above bottom bar */}
+        {/* ── PiP — draggable, tap to swap ── */}
         <Animated.View
           style={[styles.pip, { left: pipX, top: pipY }]}
           {...pipPanResponder.panHandlers}
@@ -296,26 +393,60 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
               showToast("Views swapped");
             }}
           >
-            <LocalPiP />
+            {pipStream ? (
+              // @ts-ignore — web only
+              <video
+                ref={pipVideoRef}
+                autoPlay
+                playsInline
+                muted={!isSwapped} // mute local PiP feed
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  transform: !isSwapped ? "scaleX(-1)" : "none",
+                }}
+              />
+            ) : (
+              // PiP placeholder when stream not yet available
+              <View style={styles.pipInner}>
+                {pipPicture ? (
+                  <Image
+                    source={{ uri: pipPicture }}
+                    style={{ width: 42, height: 42, borderRadius: 21 }}
+                  />
+                ) : (
+                  <View style={styles.pipInitials}>
+                    <Text style={styles.pipInitialsText}>{pipInitials}</Text>
+                  </View>
+                )}
+                {isMuted && (
+                  <View style={styles.pipMicBadge}>
+                    <Ionicons name="mic-off" size={9} color="#fff" />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Name label — always shown */}
+            <View style={styles.pipLabelWrap}>
+              <Text style={styles.pipLabelText}>{pipName}</Text>
+            </View>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Bottom controls — fixed height at bottom */}
-        <View
-          style={[
-            styles.bottomBar,
-            { paddingBottom: insets.bottom + 16 },
-          ]}
-        >
-          <Text style={styles.callerLabel}>{remoteUsername}</Text>
+        {/* ── Bottom controls ── */}
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+          <Text style={styles.callerLabel}>{mainName}</Text>
           <View style={styles.ctrlRow}>
-
             <CtrlCol label={isMuted ? "Unmute" : "Mute"}>
               <CtrlBtn onPress={toggleMic} off={isMuted}>
                 <Ionicons
                   name={isMuted ? "mic-off" : "mic"}
                   size={20}
-                  color={isMuted ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)"}
+                  color={
+                    isMuted ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)"
+                  }
                 />
               </CtrlBtn>
             </CtrlCol>
@@ -325,7 +456,11 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                 <Ionicons
                   name={isVideoOn ? "videocam" : "videocam-off"}
                   size={20}
-                  color={!isVideoOn ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)"}
+                  color={
+                    !isVideoOn
+                      ? "rgba(255,255,255,0.3)"
+                      : "rgba(255,255,255,0.8)"
+                  }
                 />
               </CtrlBtn>
             </CtrlCol>
@@ -351,10 +486,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
             </CtrlCol>
 
             <CtrlCol label="Chat">
-              <CtrlBtn
-                onPress={() => setChatOpen((p) => !p)}
-                active={chatOpen}
-              >
+              <CtrlBtn onPress={() => setChatOpen((p) => !p)} active={chatOpen}>
                 <Ionicons
                   name="chatbubble-outline"
                   size={18}
@@ -362,11 +494,10 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                 />
               </CtrlBtn>
             </CtrlCol>
-
           </View>
         </View>
 
-        {/* Chat panel — sits above bottom bar */}
+        {/* ── Chat panel ── */}
         {chatOpen && (
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -375,7 +506,11 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
             <View style={styles.chatHeader}>
               <Text style={styles.chatTitle}>Chat</Text>
               <TouchableOpacity onPress={() => setChatOpen(false)}>
-                <Ionicons name="close" size={18} color="rgba(255,255,255,0.4)" />
+                <Ionicons
+                  name="close"
+                  size={18}
+                  color="rgba(255,255,255,0.4)"
+                />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -406,13 +541,15 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                 onSubmitEditing={sendMessage}
                 returnKeyType="send"
               />
-              <TouchableOpacity onPress={sendMessage} style={styles.chatSendBtn}>
+              <TouchableOpacity
+                onPress={sendMessage}
+                style={styles.chatSendBtn}
+              >
                 <Ionicons name="send" size={13} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         )}
-
       </View>
     </Modal>
   );
@@ -426,43 +563,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
   },
 
-  // Remote feed — true fullscreen behind all layers
-  remoteFeed: {
-    ...StyleSheet.absoluteFillObject,
+  // Main stream placeholder background
+  mainPlaceholderBg: {
     backgroundColor: "#141414",
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  // Avatar placeholder
+  placeholderWrap: {
+    alignItems: "center",
     gap: 12,
   },
-  remoteAvatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+  placeholderAvatar: {
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  remoteInitials: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+  placeholderInitials: {
     backgroundColor: "#222",
     borderWidth: 1,
     borderColor: "#2e2e2e",
     alignItems: "center",
     justifyContent: "center",
   },
-  remoteInitialsText: {
-    fontSize: 32,
+  placeholderInitialsText: {
     fontWeight: "500",
     color: "#666",
   },
-  remoteName: {
-    fontSize: 20,
-    fontWeight: "500",
-    color: "#fff",
-    letterSpacing: -0.2,
-  },
-  remoteStatus: {
+  placeholderLabel: {
     fontSize: 13,
     color: "rgba(255,255,255,0.35)",
   },
@@ -498,7 +626,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.5)",
     letterSpacing: 0.8,
-    fontVariant: ["tabular-nums"],
   },
   signalPill: {
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -582,7 +709,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Bottom bar — fixed height, always at bottom
+  // Bottom bar
   bottomBar: {
     position: "absolute",
     bottom: 0,
