@@ -163,10 +163,17 @@ export default function MessagesUserList({
 
     return (
         <View style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]}>
-
             {/* Search */}
             <View style={[styles.searchWrap, { borderBottomColor: colors.border }]}>
-                <View style={[styles.searchInner, { backgroundColor: colors.hover, borderColor: colors.border }]}>
+                <View
+                    style={[
+                        styles.searchInner,
+                        {
+                            backgroundColor: colors.surface,
+                            borderColor: colors.border,
+                        },
+                    ]}
+                >
                     <Ionicons name="search-outline" size={15} color={colors.textDisabled} />
                     <TextInput
                         style={[styles.searchInput, { color: colors.textPrimary }]}
@@ -293,10 +300,10 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        borderRadius: 10,
+        borderRadius: 30,
         borderWidth: 1,
-        paddingHorizontal: 10,
-        paddingVertical: 7,
+        paddingHorizontal: 12,
+        height: 42,
     },
     searchInput: { flex: 1, fontSize: 13 },
 

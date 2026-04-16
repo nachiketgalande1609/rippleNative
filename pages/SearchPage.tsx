@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     header: { borderBottomWidth: 1 },
     inputWrapper: {
         paddingHorizontal: 12,
-        paddingTop: 12,
+        paddingTop: 10,
         paddingBottom: 10,
         position: "relative",
     },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        borderRadius: 10,
+        borderRadius: 30,
         borderWidth: 1,
         paddingHorizontal: 12,
         height: 42,

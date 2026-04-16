@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     profileAvatar: {
         width: 32,
         height: 32,
-        borderRadius: "50%",
+        borderRadius: 16,
         borderWidth: 2,
         borderColor: "transparent",
     },
