@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getMutedUsers, toggleMuteUser } from "../../services/api";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useGlobalStore } from "../../store/store";
 
 const ACCENT = "#7c5cfc";
 
@@ -44,6 +45,9 @@ const MessagesTopBar: React.FC<MessagesTopBarProps> = ({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [muteLoading, setMuteLoading] = useState(false);
+
+  const { onlineUsers } = useGlobalStore();
+  const isOnline = onlineUsers.map(String).includes(String(selectedUser?.id));
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -100,7 +104,11 @@ const MessagesTopBar: React.FC<MessagesTopBarProps> = ({
               style={styles.avatar}
             />
             {/* Online dot */}
-            <View style={[styles.onlineDot, { borderColor: colors.surface }]} />
+            {isOnline && (
+              <View
+                style={[styles.onlineDot, { borderColor: colors.surface }]}
+              />
+            )}
           </View>
           <View style={{ minWidth: 0, justifyContent: "center" }}>
             <Text
@@ -110,7 +118,7 @@ const MessagesTopBar: React.FC<MessagesTopBarProps> = ({
               {selectedUser?.username}
             </Text>
             <Text style={[styles.onlineText, { color: colors.textDisabled }]}>
-              Online
+              {isOnline ? "Online" : "Offline"}
             </Text>
           </View>
         </TouchableOpacity>

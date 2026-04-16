@@ -261,7 +261,9 @@ export default function MessagesUserList({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 8 }}
             renderItem={({ item: user }) => {
-              const isOnline = onlineUsers.includes(user.id.toString());
+              const isOnline = onlineUsers
+                .map(String)
+                .includes(String(user.id));
               const isActive = activeUserId === user.id;
               const hasUnread = (user.unread_count || 0) > 0;
               const avatarColor = getAvatarColor(user.username);

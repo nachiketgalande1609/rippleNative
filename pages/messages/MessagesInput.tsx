@@ -195,34 +195,24 @@ const MessageInput: React.FC<Props> = ({
           />
         </View>
 
-        {/* Send text button */}
+        {/* Send button — remove the outer TouchableOpacity wrapper */}
         <TouchableOpacity
           onPress={() => canSend && handleSendMessage()}
           disabled={isSendingMessage || !canSend}
           activeOpacity={0.7}
+          style={[
+            styles.sendBtn,
+            { backgroundColor: canSend ? ACCENT : colors.hover },
+          ]}
         >
           {isSendingMessage ? (
-            <ActivityIndicator size={14} color={ACCENT} />
+            <ActivityIndicator size={14} color="#fff" />
           ) : (
-            <TouchableOpacity
-              onPress={() => canSend && handleSendMessage()}
-              disabled={isSendingMessage || !canSend}
-              activeOpacity={0.7}
-              style={[
-                styles.sendBtn,
-                { backgroundColor: canSend ? ACCENT : colors.hover },
-              ]}
-            >
-              {isSendingMessage ? (
-                <ActivityIndicator size={14} color="#fff" />
-              ) : (
-                <Ionicons
-                  name="send"
-                  size={15}
-                  color={canSend ? "#fff" : colors.textDisabled}
-                />
-              )}
-            </TouchableOpacity>
+            <Ionicons
+              name="send"
+              size={15}
+              color={canSend ? "#fff" : colors.textDisabled}
+            />
           )}
         </TouchableOpacity>
       </View>

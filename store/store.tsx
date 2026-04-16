@@ -22,6 +22,9 @@ interface globalStoreState {
     setUnreadMessagesCount: (count: number | null) => void;
     resetNotificationsCount: () => void;
     setPostUploading: (isUploading: boolean) => void;
+
+    onlineUsers: string[];
+    setOnlineUsers: (users: string[]) => void;
 }
 
 export const useGlobalStore = create<globalStoreState>((set) => ({
@@ -29,6 +32,8 @@ export const useGlobalStore = create<globalStoreState>((set) => ({
     unreadNotificationsCount: null,
     unreadMessagesCount: null,
     postUploading: false,
+    onlineUsers: [],
+    setOnlineUsers: (users) => set({ onlineUsers: users }),
 
     // 🔹 Load user from AsyncStorage (call on app start)
     loadUser: async () => {
