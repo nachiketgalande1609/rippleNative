@@ -19,6 +19,7 @@ interface NavBarProps {
     onlineUsers?: string[];
     selectedUser?: any;
     setSelectedUser?: (user: any) => void;
+    onVideoCall?: (userId: number) => void;
 }
 
 interface MessagePreview {
@@ -262,7 +263,7 @@ function LogoutModal({
 }
 
 // ── NavBar ─────────────────────────────────────────────────────────────────────
-export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, setUnreadMessagesCount }: NavBarProps) {
+export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, setUnreadMessagesCount, onVideoCall }: NavBarProps) {
     const colors = useThemeColors();
     const router = useRouter();
     const pathname = usePathname();

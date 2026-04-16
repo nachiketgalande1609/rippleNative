@@ -22,6 +22,7 @@ import MobileTopBar from "../components/MobileTopBar";
 import { useFonts } from "expo-font";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "react-native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 const AUTH_ROUTES = ["/login", "/register", "/reset-password", "/verify-email"];
 
@@ -34,6 +35,77 @@ type User = {
   latest_message_timestamp: string;
   unread_count: number;
 };
+
+function PulsingAvatar({
+  uri,
+  fallback,
+}: {
+  uri?: string | null;
+  fallback: any;
+}) {
+  const ring1 = useRef(new Animated.Value(1)).current;
+  const ring2 = useRef(new Animated.Value(1)).current;
+  const op1 = useRef(new Animated.Value(0.6)).current;
+  const op2 = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const pulse = (
+      scale: Animated.Value,
+      opacity: Animated.Value,
+      delay: number,
+    ) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(scale, {
+              toValue: 1.5,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 1000,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.timing(scale, {
+              toValue: 1,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0.5,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+      ).start();
+
+    pulse(ring1, op1, 0);
+    pulse(ring2, op2, 500);
+  }, []);
+
+  return (
+    <View style={styles.avatarWrap}>
+      <Animated.View
+        style={[
+          styles.pulseRing,
+          { transform: [{ scale: ring1 }], opacity: op1 },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.pulseRing,
+          { transform: [{ scale: ring2 }], opacity: op2 },
+        ]}
+      />
+      <Image source={uri ? { uri } : fallback} style={styles.callerAvatar} />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const colors = useThemeColors();
@@ -55,6 +127,7 @@ export default function RootLayout() {
     loadUser,
     onlineUsers,
     setOnlineUsers,
+    setOnVideoCall,
   } = useGlobalStore();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -78,6 +151,16 @@ export default function RootLayout() {
 
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
+  const handleOpenVideoCall = (userId: number) => {
+    setCallParticipantId(userId);
+    setIsVideoModalOpen(true);
+  };
+
+  const [remoteCallInfo, setRemoteCallInfo] = useState<{
+    username: string;
+    profilePicture?: string;
+  } | null>(null);
+
   // ── Auth guard ──
   useEffect(() => {
     const checkAuth = async () => {
@@ -95,6 +178,14 @@ export default function RootLayout() {
       }
     };
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    setOnVideoCall((userId: number) => {
+      setCallParticipantId(userId);
+      setIsVideoModalOpen(true);
+    });
+    return () => setOnVideoCall(null);
   }, []);
 
   useEffect(() => {
@@ -166,8 +257,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (!user) return;
     const handler = () => {
-        console.log("Notification Received");
-        
+      console.log("Notification Received");
+
       const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
       setUnreadNotificationsCount(current + 1);
     };
@@ -212,6 +303,7 @@ export default function RootLayout() {
       setCallParticipantId(null);
     }
     setIsVideoModalOpen(false);
+    setRemoteCallInfo(null); // ← add this
     setPc(null);
     setLocalStream(null);
     setRemoteStream(null);
@@ -270,49 +362,91 @@ export default function RootLayout() {
             onlineUsers={onlineUsers}
             selectedUser={selectedUser}
             setSelectedUser={setSelectedUser}
+            onVideoCall={handleOpenVideoCall}
           />
         )}
         {/* Incoming call modal */}
-        <Modal visible={!!incomingCall} transparent animationType="fade">
+        <Modal visible={!!incomingCall} transparent animationType="slide">
           <View style={styles.callBackdrop}>
+            {/* Blurred/dimmed tap-to-dismiss area */}
+            <View style={{ flex: 1 }} />
+
             <View
               style={[
                 styles.callCard,
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
-              <Image
-                source={
-                  incomingCall?.callerProfilePicture
-                    ? { uri: incomingCall.callerProfilePicture }
-                    : require("../assets/profile_blank.png")
-                }
-                style={styles.callerAvatar}
+              {/* Drag handle */}
+              <View
+                style={[styles.dragHandle, { backgroundColor: colors.border }]}
               />
+
+              {/* Caller info */}
+              <Text
+                style={[styles.incomingLabel, { color: colors.textSecondary }]}
+              >
+                Incoming video call
+              </Text>
+
+              {/* Pulsing avatar */}
+              <PulsingAvatar
+                uri={incomingCall?.callerProfilePicture}
+                fallback={require("../assets/profile_blank.png")}
+              />
+
               <Text style={[styles.callerName, { color: colors.textPrimary }]}>
                 {incomingCall?.callerUsername}
               </Text>
-              <Text style={[styles.callerSub, { color: colors.textSecondary }]}>
-                is calling you
-              </Text>
+
+              {/* Action buttons */}
               <View style={styles.callActions}>
-                <TouchableOpacity
-                  style={[styles.callBtn, styles.acceptBtn]}
-                  onPress={() => {
-                    if (!incomingCall) return;
-                    setCallParticipantId(incomingCall.from);
-                    setIsVideoModalOpen(true);
-                    setIncomingCall(null);
-                  }}
-                >
-                  <Text style={styles.callBtnText}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.callBtn, styles.rejectBtn]}
-                  onPress={handleRejectCall}
-                >
-                  <Text style={styles.callBtnText}>Reject</Text>
-                </TouchableOpacity>
+                {/* Reject */}
+                <View style={styles.callBtnWrap}>
+                  <TouchableOpacity
+                    style={[styles.callBtn, styles.rejectBtn]}
+                    onPress={handleRejectCall}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="call-end" size={28} color="#fff" />
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.callBtnLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Decline
+                  </Text>
+                </View>
+
+                {/* Accept */}
+                <View style={styles.callBtnWrap}>
+                  <TouchableOpacity
+                    style={[styles.callBtn, styles.acceptBtn]}
+                    onPress={() => {
+                      if (!incomingCall) return;
+                      setRemoteCallInfo({
+                        username: incomingCall.callerUsername,
+                        profilePicture: incomingCall.callerProfilePicture,
+                      });
+                      setCallParticipantId(incomingCall.from);
+                      setIsVideoModalOpen(true);
+                      setIncomingCall(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="videocam" size={26} color="#fff" />
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.callBtnLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Accept
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -329,10 +463,10 @@ export default function RootLayout() {
           localUsername={currentUser?.username}
           localProfilePicture={currentUser?.profile_picture_url}
           remoteUsername={
-            incomingCall?.callerUsername ?? selectedUser?.username ?? "Remote"
+            remoteCallInfo?.username ?? selectedUser?.username ?? "Remote"
           }
           remoteProfilePicture={
-            incomingCall?.callerProfilePicture ??
+            remoteCallInfo?.profilePicture ??
             selectedUser?.profile_picture ??
             undefined
           }
@@ -343,6 +477,79 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  callBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  callCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 0.5,
+    paddingTop: 12,
+    paddingBottom: 44, // accounts for home indicator
+    paddingHorizontal: 24,
+    alignItems: "center",
+    gap: 8,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+  incomingLabel: {
+    fontSize: 13,
+    letterSpacing: 0.3,
+    marginBottom: 20,
+  },
+  avatarWrap: {
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#4caf50",
+  },
+  callerAvatar: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+  },
+  callerName: {
+    fontSize: 22,
+    fontWeight: "600",
+    marginBottom: 32,
+  },
+  // Remove callerSub since we moved it to incomingLabel
+  callActions: {
+    flexDirection: "row",
+    gap: 48,
+    marginTop: 8,
+  },
+  callBtnWrap: {
+    alignItems: "center",
+    gap: 10,
+  },
+  callBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  acceptBtn: { backgroundColor: "#4caf50" },
+  rejectBtn: { backgroundColor: "#e53935" },
+  callBtnLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
   uploadBar: {
     position: "absolute",
     top: 0,
@@ -359,31 +566,5 @@ const styles = StyleSheet.create({
     width: 150,
     backgroundColor: "#7a60ff",
   },
-  callBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    padding: 16,
-  },
-  callCard: {
-    width: "100%",
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  callerAvatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 12 },
-  callerName: { fontWeight: "600", fontSize: 16, marginBottom: 4 },
-  callerSub: { fontSize: 14, marginBottom: 16 },
-  callActions: { flexDirection: "row", gap: 12 },
-  callBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 15,
-    alignItems: "center",
-  },
-  acceptBtn: { backgroundColor: "#4caf50" },
-  rejectBtn: { backgroundColor: "#e53935" },
   callBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });
