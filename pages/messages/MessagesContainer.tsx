@@ -229,7 +229,7 @@ function MessageBubble({
 
   return (
     // Outer View — actionsRow is a sibling of msgRow so it never shifts the bubble
-    <View style={{ marginBottom: 4 }}>
+    <View style={{ marginBottom: 10 }}>
       {/* ── Message row ── */}
       <View
         style={[
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginTop: 3,
+    marginTop: -4,
   },
   reactionEmoji: { fontSize: 14 },
 
