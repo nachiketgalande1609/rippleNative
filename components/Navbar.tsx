@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Animated, Pressable, Image, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Pressable, Image, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
@@ -7,9 +7,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import socket from "../services/socket";
 import { useThemeColors } from "../hooks/useThemeColors";
 import CreatePostModal from "../components/CreatePostModal";
+import * as Notifications from "expo-notifications";
 
 const ACCENT = "#7c5cfc";
-const TOAST_DURATION = 6000;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface NavBarProps {
@@ -20,208 +20,6 @@ interface NavBarProps {
     selectedUser?: any;
     setSelectedUser?: (user: any) => void;
     onVideoCall?: (userId: number) => void;
-}
-
-interface MessagePreview {
-    senderId: number;
-    senderUsername: string;
-    senderProfilePicture: string | null;
-    messageText: string;
-}
-
-interface ToastItem {
-    id: number;
-    preview: MessagePreview;
-    hiding: boolean;
-    version: number;
-}
-
-// ── useToastStack ──────────────────────────────────────────────────────────────
-function useToastStack() {
-    const [toasts, setToasts] = useState<ToastItem[]>([]);
-    const timerMap = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
-    const idRef = useRef(0);
-
-    const scheduleRemove = useCallback((id: number) => {
-        const existing = timerMap.current.get(id);
-        if (existing) clearTimeout(existing);
-
-        const hideTimer = setTimeout(() => {
-            setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, hiding: true } : t)));
-            const removeTimer = setTimeout(() => {
-                setToasts((prev) => prev.filter((t) => t.id !== id));
-                timerMap.current.delete(id);
-            }, 300);
-            timerMap.current.set(id, removeTimer);
-        }, TOAST_DURATION);
-
-        timerMap.current.set(id, hideTimer);
-    }, []);
-
-    const push = useCallback(
-        (preview: MessagePreview) => {
-            setToasts((prev) => {
-                const existingIdx = prev.findIndex((t) => t.preview.senderId === preview.senderId);
-                if (existingIdx !== -1) {
-                    const existing = prev[existingIdx];
-                    scheduleRemove(existing.id);
-                    const next = [...prev];
-                    next[existingIdx] = {
-                        ...existing,
-                        preview: { ...preview },
-                        hiding: false,
-                        version: existing.version + 1,
-                    };
-                    return next;
-                }
-                const id = ++idRef.current;
-                scheduleRemove(id);
-                return [...prev, { id, preview, hiding: false, version: 0 }];
-            });
-        },
-        [scheduleRemove],
-    );
-
-    const dismiss = useCallback((id: number) => {
-        const existing = timerMap.current.get(id);
-        if (existing) clearTimeout(existing);
-        setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, hiding: true } : t)));
-        const t = setTimeout(() => {
-            setToasts((prev) => prev.filter((toast) => toast.id !== id));
-            timerMap.current.delete(id);
-        }, 300);
-        timerMap.current.set(id, t);
-    }, []);
-
-    const dismissAll = useCallback(() => {
-        timerMap.current.forEach((t) => clearTimeout(t));
-        timerMap.current.clear();
-        setToasts([]);
-    }, []);
-
-    useEffect(
-        () => () => {
-            timerMap.current.forEach((t) => clearTimeout(t));
-        },
-        [],
-    );
-
-    return { toasts, push, dismiss, dismissAll };
-}
-
-// ── Toast Banner ───────────────────────────────────────────────────────────────
-function ToastBanner({
-    toast,
-    onDismiss,
-    onPress,
-    insetTop,
-}: {
-    toast: ToastItem;
-    onDismiss: (id: number) => void;
-    onPress: (senderId: number) => void;
-    insetTop: number;
-}) {
-    const colors = useThemeColors();
-    const opacity = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(-20)).current;
-    const progress = useRef(new Animated.Value(1)).current;
-
-    useEffect(() => {
-        Animated.parallel([
-            Animated.timing(opacity, {
-                toValue: 1,
-                duration: 220,
-                useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-                toValue: 0,
-                duration: 280,
-                useNativeDriver: true,
-            }),
-        ]).start();
-        Animated.timing(progress, {
-            toValue: 0,
-            duration: TOAST_DURATION,
-            useNativeDriver: false,
-        }).start();
-    }, [toast.version]);
-
-    useEffect(() => {
-        if (toast.hiding) {
-            Animated.parallel([
-                Animated.timing(opacity, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(translateY, {
-                    toValue: -20,
-                    duration: 220,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        }
-    }, [toast.hiding]);
-
-    return (
-        <Animated.View
-            style={[
-                styles.toastBanner,
-                {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    top: insetTop + 8,
-                    opacity,
-                    transform: [{ translateY }],
-                },
-            ]}
-        >
-            <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                    onDismiss(toast.id);
-                    onPress(toast.preview.senderId);
-                }}
-                style={styles.toastInner}
-            >
-                <View style={{ position: "relative" }}>
-                    <Image
-                        source={
-                            toast.preview.senderProfilePicture ? { uri: toast.preview.senderProfilePicture } : require("../assets/profile_blank.png")
-                        }
-                        style={styles.toastAvatar}
-                    />
-                    <View style={styles.toastOnlineDot} />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.toastUsername, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {toast.preview.senderUsername}
-                    </Text>
-                    <Text style={[styles.toastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {toast.preview.messageText || "Sent you a message"}
-                    </Text>
-                </View>
-
-                <TouchableOpacity onPress={() => onDismiss(toast.id)} style={styles.toastClose}>
-                    <Ionicons name="close" size={14} color={colors.textDisabled} />
-                </TouchableOpacity>
-            </TouchableOpacity>
-
-            {/* Progress bar */}
-            <Animated.View
-                style={[
-                    styles.toastProgress,
-                    {
-                        width: progress.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0%", "100%"],
-                        }),
-                    },
-                ]}
-            />
-        </Animated.View>
-    );
 }
 
 // ── Logout Confirm Modal ───────────────────────────────────────────────────────
@@ -273,8 +71,6 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
     const [modalOpen, setModalOpen] = useState(false);
     const [logoutOpen, setLogoutOpen] = useState(false);
 
-    const { toasts, push, dismiss, dismissAll } = useToastStack();
-
     // Load user
     useEffect(() => {
         AsyncStorage.getItem("user").then((raw) => {
@@ -285,32 +81,27 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
     // Hide on auth screens
     const hideBar = ["/login", "/register", "/reset-password", "/verify-email"].includes(pathname);
 
-    // Dismiss toasts when navigating to messages
-    useEffect(() => {
-        if (pathname.startsWith("/messages")) dismissAll();
-    }, [pathname, dismissAll]);
-
     // Socket: unread messages + toast preview
     useEffect(() => {
         const handler = (data: any) => {
             setUnreadMessagesCount(data.unreadCount);
             if (data.preview && !pathname.startsWith("/messages")) {
-                push(data.preview);
+                Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: data.preview.senderUsername,
+                        body: data.preview.messageText || "Sent you a message",
+                        data: { senderId: data.preview.senderId },
+                        sound: true,
+                    },
+                    trigger: null,
+                });
             }
         };
         socket.on("unreadMessagesCount", handler);
         return () => {
             socket.off("unreadMessagesCount", handler);
         };
-    }, [push, pathname]);
-
-    const handleNavigateToChat = useCallback(
-        (senderId: number) => {
-            dismissAll();
-            router.push(`/messages/${senderId}`);
-        },
-        [dismissAll, router],
-    );
+    }, [pathname]);
 
     const handleLogout = async () => {
         socket.disconnect();
@@ -379,10 +170,6 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
 
     return (
         <>
-            {toasts.slice(-1).map((toast) => (
-                <ToastBanner key={toast.id} toast={toast} onDismiss={dismiss} onPress={handleNavigateToChat} insetTop={insets.top} />
-            ))}
-
             <View
                 style={[
                     styles.navBar,

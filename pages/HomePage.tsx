@@ -358,8 +358,6 @@ const styles = StyleSheet.create({
         backgroundColor: ACCENT,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 2,
-        borderColor: "#fff",
     },
 
     // Story skeleton

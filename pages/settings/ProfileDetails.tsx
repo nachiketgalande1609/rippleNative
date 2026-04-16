@@ -133,7 +133,7 @@ export default function ProfileDetails() {
             {/* ── Avatar card ── */}
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.avatarRow}>
-                    <TouchableOpacity onPress={pickAndUploadPhoto} activeOpacity={0.8} style={styles.avatarWrap}>
+                    <View style={styles.avatarWrap}>
                         <Image
                             source={
                                 currentUser?.profile_picture_url
@@ -142,10 +142,7 @@ export default function ProfileDetails() {
                             }
                             style={styles.avatar}
                         />
-                        <View style={styles.avatarOverlay}>
-                            {uploadingPic ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={16} color="#fff" />}
-                        </View>
-                    </TouchableOpacity>
+                    </View>
                     <View style={{ flex: 1 }}>
                         <Text style={[styles.avatarName, { color: colors.textPrimary }]} numberOfLines={1}>
                             {newUsername || "—"}
@@ -261,14 +258,6 @@ const styles = StyleSheet.create({
     avatarRow: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
     avatarWrap: { position: "relative", flexShrink: 0 },
     avatar: { width: 58, height: 58, borderRadius: 29 },
-    avatarOverlay: {
-        position: "absolute",
-        inset: 0,
-        borderRadius: 29,
-        backgroundColor: "rgba(0,0,0,0.45)",
-        alignItems: "center",
-        justifyContent: "center",
-    },
     avatarName: { fontWeight: "500", fontSize: 14 },
     avatarHint: { fontSize: 12, marginTop: 2 },
     changePhotoBtn: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7, flexShrink: 0 },
