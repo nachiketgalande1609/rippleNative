@@ -1,6 +1,6 @@
 {
     "expo": {
-        "name": "rippleNative",
+        "name": "Ripple",
         "slug": "rippleNative",
         "version": "1.0.0",
         "orientation": "portrait",
@@ -16,15 +16,22 @@
         },
         "android": {
             "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
+                "foregroundImage": "./assets/logo.png",
                 "backgroundColor": "#ffffff"
             },
             "edgeToEdgeEnabled": true,
-            "predictiveBackGestureEnabled": false
+            "predictiveBackGestureEnabled": false,
+            "package": "com.nachiket4251.rippleNative"
         },
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-router", "expo-font"]
+        "plugins": ["expo-router", "expo-font"],
+        "extra": {
+            "router": {},
+            "eas": {
+                "projectId": "e5a8c693-ded4-44ae-a044-aa4b25bb65a5"
+            }
+        }
     }
 }
