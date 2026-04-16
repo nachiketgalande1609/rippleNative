@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useThemeColors } from "../hooks/useThemeColors";
+
+const ACCENT = "#7c5cfc";
 
 interface Profile {
     username: string;
@@ -28,13 +31,10 @@ function getState(isFollowing: boolean, profileData: Pick<Profile, "is_request_a
 }
 
 const FollowButton: React.FC<FollowButtonProps> = ({
-    isFollowing,
-    profileData,
-    followButtonLoading,
-    handleFollow,
-    handleCancelRequest,
-    handleUnfollow,
+    isFollowing, profileData, followButtonLoading,
+    handleFollow, handleCancelRequest, handleUnfollow,
 }) => {
+    const colors = useThemeColors();
     const [pressed, setPressed] = useState(false);
     const state = getState(isFollowing, profileData);
 
@@ -46,33 +46,34 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     };
 
     const isInteractive = state === "pending" || state === "following";
-    const showPressed = pressed && isInteractive;
+    const showPressed   = pressed && isInteractive;
 
-    const getStyle = () => {
-        if (state === "follow") return styles.followBtn;
-        if (showPressed) return styles.dangerBtn;
-        return styles.outlineBtn;
-    };
+    // Styles based on state
+    const containerStyle = state === "follow"
+        ? { backgroundColor: ACCENT, borderWidth: 0 }
+        : showPressed
+        ? { backgroundColor: "rgba(229,57,53,0.08)", borderWidth: 1.5, borderColor: "rgba(229,57,53,0.3)" }
+        : { backgroundColor: colors.hover, borderWidth: 1, borderColor: colors.border };
 
-    const getTextStyle = () => {
-        if (state === "follow") return styles.followText;
-        if (showPressed) return styles.dangerText;
-        return styles.outlineText;
-    };
+    const textColor = state === "follow" ? "#fff"
+        : showPressed ? "#e53935"
+        : colors.textSecondary;
 
-    const getLabel = () => {
-        if (state === "follow") return "Follow";
-        if (showPressed) return state === "pending" ? "Cancel" : "Unfollow";
-        return state === "pending" ? "Requested" : "Following";
-    };
+    const iconColor = state === "follow" ? "#fff"
+        : showPressed ? "#e53935"
+        : colors.textDisabled;
 
-    const getIcon = () => {
-        const color = state === "follow" ? "#0a0a0a" : showPressed ? "#ff5050" : "#888";
-        if (state === "follow") return <Ionicons name="person-add" size={13} color={color} />;
-        if (showPressed) return <Ionicons name="close" size={13} color={color} />;
-        if (state === "pending") return <MaterialIcons name="hourglass-top" size={13} color={color} />;
-        return <Ionicons name="checkmark" size={13} color={color} />;
-    };
+    const label = state === "follow" ? "Follow"
+        : showPressed ? (state === "pending" ? "Cancel" : "Unfollow")
+        : state === "pending" ? "Requested" : "Following";
+
+    const icon = state === "follow"
+        ? <Ionicons name="person-add" size={13} color={iconColor} />
+        : showPressed
+        ? <Ionicons name="close" size={13} color={iconColor} />
+        : state === "pending"
+        ? <MaterialIcons name="hourglass-top" size={13} color={iconColor} />
+        : <Ionicons name="checkmark" size={13} color={iconColor} />;
 
     return (
         <TouchableOpacity
@@ -81,14 +82,14 @@ const FollowButton: React.FC<FollowButtonProps> = ({
             onPressOut={() => setPressed(false)}
             disabled={followButtonLoading}
             activeOpacity={1}
-            style={[styles.base, getStyle()]}
+            style={[styles.base, containerStyle]}
         >
             {followButtonLoading ? (
-                <ActivityIndicator size={13} color="#888" />
+                <ActivityIndicator size={13} color={state === "follow" ? "#fff" : colors.textDisabled} />
             ) : (
                 <View style={styles.inner}>
-                    {getIcon()}
-                    <Text style={[styles.label, getTextStyle()]}>{getLabel()}</Text>
+                    {icon}
+                    <Text style={[styles.label, { color: textColor }]}>{label}</Text>
                 </View>
             )}
         </TouchableOpacity>
@@ -98,13 +99,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
 export default FollowButton;
 
 const styles = StyleSheet.create({
-    base: { width: 110, height: 34, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-    followBtn: { backgroundColor: "#fff", borderWidth: 0 },
-    outlineBtn: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#2a2a2a" },
-    dangerBtn: { backgroundColor: "rgba(255,80,80,0.08)", borderWidth: 1.5, borderColor: "rgba(255,80,80,0.25)" },
+    base:  { flex: 1, height: 34, borderRadius: 9, alignItems: "center", justifyContent: "center" },
     inner: { flexDirection: "row", alignItems: "center", gap: 5 },
-    label: { fontSize: 13, fontWeight: "500", letterSpacing: 0.1 },
-    followText: { color: "#0a0a0a" },
-    outlineText: { color: "#888" },
-    dangerText: { color: "#ff5050" },
+    label: { fontSize: 13, fontWeight: "600", letterSpacing: 0.1 },
 });
