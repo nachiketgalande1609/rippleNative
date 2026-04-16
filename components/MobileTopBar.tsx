@@ -16,7 +16,7 @@ export default function MobileTopBar({ unreadNotificationsCount }: MobileTopBarP
     const colors = useThemeColors();
     const insets = useSafeAreaInsets();
 
-    const hideBar = ["/login", "/register", "/reset-password", "/verify-email"].includes(pathname) || pathname.startsWith("/messages");
+    const hideBar = ["/login", "/register", "/reset-password", "/verify-email"].includes(pathname) || /^\/messages\/\d+$/.test(pathname);
 
     if (hideBar) return null;
 
