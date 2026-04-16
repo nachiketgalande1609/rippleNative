@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { View, Text, ScrollView, FlatList, TouchableOpacity, Image, StyleSheet, Animated, Dimensions } from "react-native";
+import { View, Text, ScrollView, FlatList, TouchableOpacity, Image, StyleSheet, Animated, Dimensions, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -173,6 +173,13 @@ export default function HomePage() {
     const [selfStories, setSelfStories] = useState<any[]>([]);
     const [followingStories, setFollowingStories] = useState<any[]>([]);
     const [fetchingStories, setFetchingStories] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await Promise.all([fetchPosts(), fetchStories()]);
+        setRefreshing(false);
+    };
 
     useEffect(() => {
         AsyncStorage.getItem("user").then((raw) => {
@@ -266,6 +273,14 @@ export default function HomePage() {
                 keyExtractor={(item) => String(item.id)}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={ACCENT}
+                        colors={[ACCENT]} // Android
+                    />
+                }
                 ListHeaderComponent={<StoriesHeader />}
                 ListEmptyComponent={
                     loadingPosts ? (

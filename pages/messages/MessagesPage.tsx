@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import { View, StyleSheet, KeyboardAvoidingView, Platform, RefreshControl } from "react-native";
 import socket from "../../services/socket";
 import { useGlobalStore } from "../../store/store";
 import { deleteMessage, getAllMessageUsersData, getMessagesDataForSelectedUser, getMutedUsers, shareChatMedia } from "../../services/api";
@@ -76,6 +76,13 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ handleVideoCall = () => {} 
     const [loadingUsers, setLoadingUsers] = useState(true);
     const [initialMessageLoading, setInitialMessageLoading] = useState(false);
     const { onlineUsers } = useGlobalStore();
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchUsersData();
+        setRefreshing(false);
+    };
 
     // Load current user
     useEffect(() => {
@@ -375,7 +382,13 @@ const MessagesPage: React.FC<MessagesPageProps> = ({ handleVideoCall = () => {} 
             edges={["top"]}
         >
             {!selectedUser ? (
-                <MessagesUserList users={users} onlineUsers={onlineUsers} handleUserClick={handleUserClick} loading={loadingUsers} />
+                <MessagesUserList
+                    users={users}
+                    onlineUsers={onlineUsers}
+                    handleUserClick={handleUserClick}
+                    loading={loadingUsers}
+                    onRefresh={onRefresh}
+                />
             ) : (
                 <KeyboardAvoidingView
                     style={styles.chatView}

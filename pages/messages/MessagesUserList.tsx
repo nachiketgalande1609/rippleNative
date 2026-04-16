@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { View, Text, Image, TouchableOpacity, TextInput, FlatList, StyleSheet, Animated } from "react-native";
+import { View, Text, Image, TouchableOpacity, TextInput, FlatList, StyleSheet, Animated, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { timeAgo } from "../../utils/utils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+const ACCENT = "#7c5cfc";
 
 type User = {
     id: number;
@@ -21,6 +22,8 @@ type Props = {
     handleUserClick: (userId: number) => void;
     activeUserId?: number;
     loading?: boolean;
+    refreshing: boolean;
+    onRefresh: () => void;
 };
 
 const AVATAR_COLORS = [
@@ -135,7 +138,15 @@ function SkeletonList({ colors }: { colors: any }) {
     );
 }
 
-export default function MessagesUserList({ users, onlineUsers = [], handleUserClick, activeUserId, loading = false }: Props) {
+export default function MessagesUserList({
+    users,
+    onlineUsers = [],
+    handleUserClick,
+    activeUserId,
+    loading = false,
+    refreshing = false,
+    onRefresh,
+}: Props) {
     const colors = useThemeColors();
     const [search, setSearch] = useState("");
     const insets = useSafeAreaInsets();
@@ -200,6 +211,7 @@ export default function MessagesUserList({ users, onlineUsers = [], handleUserCl
                         keyExtractor={(item) => String(item.id)}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 8 }}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} colors={[ACCENT]} />}
                         renderItem={({ item: user }) => {
                             const isOnline = onlineUsers.map(String).includes(String(user.id));
                             const isActive = activeUserId === user.id;
