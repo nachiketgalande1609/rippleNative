@@ -122,7 +122,7 @@ function TypingIndicator({ colors }: { colors: any }) {
     <View
       style={[
         styles.typingRow,
-        { backgroundColor: colors.surface, borderColor: colors.border },
+        { backgroundColor: colors.surface, borderColor: colors.border, marginLeft: 32 },
       ]}
     >
       {[dot1, dot2, dot3].map((d, i) => (
@@ -647,7 +647,7 @@ const MessagesContainer: React.FC<Props> = ({
     <ScrollView
       ref={scrollRef}
       style={[styles.root, { backgroundColor: isDark ? colors.bg : "#f7f7f8" }]}
-      contentContainerStyle={{ padding: 12, paddingBottom: 20 }}
+      contentContainerStyle={{ padding: 12, paddingBottom: 44 }}
       showsVerticalScrollIndicator={false}
       onScroll={({ nativeEvent }) => {
         if (nativeEvent.contentOffset.y < 80) loadMore();
