@@ -1,23 +1,10 @@
 import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
-    TextInput,
-    StyleSheet,
-    ScrollView,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, Image, TouchableOpacity, TextInput, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-    getFollowing,
-    followUser,
-    cancelFollowRequest,
-    unfollowUser,
-} from "../services/api";
+import { getFollowing, followUser, cancelFollowRequest, unfollowUser } from "../services/api";
 import { useThemeColors } from "../hooks/useThemeColors";
 import FollowButton from "../components/FollowButton";
 
@@ -53,8 +40,11 @@ function FollowingRow({
         try {
             const res = await followUser(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, true, true);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCancelRequest = async () => {
@@ -63,8 +53,11 @@ function FollowingRow({
         try {
             const res = await cancelFollowRequest(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, false, false);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleUnfollow = async () => {
@@ -73,23 +66,18 @@ function FollowingRow({
         try {
             const res = await unfollowUser(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, false, false);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
         <View style={styles.rowWrap}>
-            <TouchableOpacity
-                onPress={() => router.push(`/profile/${user.id}`)}
-                style={styles.rowLeft}
-                activeOpacity={0.7}
-            >
+            <TouchableOpacity onPress={() => router.push(`/profile/${user.id}`)} style={styles.rowLeft} activeOpacity={0.7}>
                 <Image
-                    source={
-                        user.profile_picture
-                            ? { uri: user.profile_picture }
-                            : require("../assets/profile_blank.png")
-                    }
+                    source={user.profile_picture ? { uri: user.profile_picture } : require("../assets/profile_blank.png")}
                     style={[styles.rowAvatar, { borderColor: colors.border }]}
                 />
                 <Text style={[styles.rowUsername, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -138,6 +126,8 @@ const FollowingPage = () => {
     const [search, setSearch] = useState("");
     const [username, setUsername] = useState("");
 
+    const insets = useSafeAreaInsets();
+
     useEffect(() => {
         AsyncStorage.getItem("user").then((raw) => {
             if (raw) setCurrentUser(JSON.parse(raw));
@@ -152,38 +142,31 @@ const FollowingPage = () => {
                 const res = await getFollowing(userId);
                 setFollowing(res.data.following || []);
                 setUsername(res.data.username || "");
-            } catch (e) { console.error(e); }
-            finally { setLoading(false); }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
         };
         fetch();
     }, [userId]);
 
-    const filtered = following.filter((u) =>
-        u.username.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = following.filter((u) => u.username.toLowerCase().includes(search.toLowerCase()));
 
     const handleFollowChange = (uid: number, isFollowing: boolean, requestActive: boolean) => {
-        setFollowing((prev) =>
-            prev.map((u) => u.id === uid ? { ...u, is_following: isFollowing, is_request_active: requestActive } : u)
-        );
+        setFollowing((prev) => prev.map((u) => (u.id === uid ? { ...u, is_following: isFollowing, is_request_active: requestActive } : u)));
     };
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={["top"]}>
+        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]} edges={["top"]}>
             {/* ── Header ── */}
             <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={[styles.backBtn, { borderColor: colors.border }]}
-                    activeOpacity={0.7}
-                >
+                <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { borderColor: colors.border }]} activeOpacity={0.7}>
                     <Ionicons name="arrow-back" size={17} color={colors.textSecondary} />
                 </TouchableOpacity>
                 <View>
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Following</Text>
-                    {!!username && (
-                        <Text style={[styles.headerSub, { color: colors.textDisabled }]}>@{username}</Text>
-                    )}
+                    {!!username && <Text style={[styles.headerSub, { color: colors.textDisabled }]}>@{username}</Text>}
                 </View>
             </View>
 
@@ -216,7 +199,9 @@ const FollowingPage = () => {
                 {/* ── List ── */}
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
                     {loading ? (
-                        Array(6).fill(0).map((_, i) => <SkeletonRow key={i} colors={colors} />)
+                        Array(6)
+                            .fill(0)
+                            .map((_, i) => <SkeletonRow key={i} colors={colors} />)
                     ) : filtered.length === 0 ? (
                         <View style={styles.emptyState}>
                             <View style={[styles.emptyIcon, { backgroundColor: colors.hover, borderColor: colors.border }]}>
@@ -226,9 +211,7 @@ const FollowingPage = () => {
                                 {search ? "No results found" : "Not following anyone yet"}
                             </Text>
                             <Text style={[styles.emptySub, { color: colors.textDisabled }]}>
-                                {search
-                                    ? "Try a different search"
-                                    : "Accounts this user follows will appear here"}
+                                {search ? "Try a different search" : "Accounts this user follows will appear here"}
                             </Text>
                         </View>
                     ) : (
@@ -261,7 +244,16 @@ const styles = StyleSheet.create({
 
     body: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
 
-    searchRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
+    searchRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        borderRadius: 10,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
     searchInput: { flex: 1, fontSize: 14 },
 
     countLabel: { fontSize: 11, fontWeight: "500", letterSpacing: 1, marginBottom: 8 },

@@ -1,27 +1,10 @@
 import React, { useState, useEffect } from "react";
-import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    StyleSheet,
-    ScrollView,
-    ActivityIndicator,
-    Pressable,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, Image, TouchableOpacity, TextInput, Modal, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-    getFollowers,
-    followUser,
-    cancelFollowRequest,
-    unfollowUser,
-    removeFollower,
-} from "../services/api";
+import { getFollowers, followUser, cancelFollowRequest, unfollowUser, removeFollower } from "../services/api";
 import { useThemeColors } from "../hooks/useThemeColors";
 import FollowButton from "../components/FollowButton";
 
@@ -61,17 +44,12 @@ function RemoveConfirmModal({
                 <Pressable>
                     <View style={[styles.confirmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <Image
-                            source={
-                                profilePicture
-                                    ? { uri: profilePicture }
-                                    : require("../assets/profile_blank.png")
-                            }
+                            source={profilePicture ? { uri: profilePicture } : require("../assets/profile_blank.png")}
                             style={[styles.confirmAvatar, { borderColor: colors.border }]}
                         />
                         <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>Remove follower?</Text>
                         <Text style={[styles.confirmSub, { color: colors.textSecondary }]}>
-                            <Text style={{ fontWeight: "600" }}>@{username}</Text>
-                            {" "}will be removed from your followers. They won't be notified.
+                            <Text style={{ fontWeight: "600" }}>@{username}</Text> will be removed from your followers. They won't be notified.
                         </Text>
 
                         <TouchableOpacity
@@ -126,8 +104,11 @@ function FollowerRow({
         try {
             const res = await followUser(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, true, true);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCancelRequest = async () => {
@@ -136,8 +117,11 @@ function FollowerRow({
         try {
             const res = await cancelFollowRequest(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, false, false);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleUnfollow = async () => {
@@ -146,8 +130,11 @@ function FollowerRow({
         try {
             const res = await unfollowUser(currentUserId.toString(), user.id.toString());
             if (res?.success) onFollowChange(user.id, false, false);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleConfirmRemove = async () => {
@@ -155,25 +142,23 @@ function FollowerRow({
         setRemoveLoading(true);
         try {
             const res = await removeFollower(user.id.toString(), currentUserId.toString());
-            if (res?.success) { setConfirmOpen(false); onRemove(user.id); }
-        } catch (e) { console.error(e); }
-        finally { setRemoveLoading(false); }
+            if (res?.success) {
+                setConfirmOpen(false);
+                onRemove(user.id);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setRemoveLoading(false);
+        }
     };
 
     return (
         <>
             <View style={styles.rowWrap}>
-                <TouchableOpacity
-                    onPress={() => router.push(`/profile/${user.id}`)}
-                    style={styles.rowLeft}
-                    activeOpacity={0.7}
-                >
+                <TouchableOpacity onPress={() => router.push(`/profile/${user.id}`)} style={styles.rowLeft} activeOpacity={0.7}>
                     <Image
-                        source={
-                            user.profile_picture
-                                ? { uri: user.profile_picture }
-                                : require("../assets/profile_blank.png")
-                        }
+                        source={user.profile_picture ? { uri: user.profile_picture } : require("../assets/profile_blank.png")}
                         style={[styles.rowAvatar, { borderColor: colors.border }]}
                     />
                     <Text style={[styles.rowUsername, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -244,6 +229,7 @@ const FollowersPage = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [username, setUsername] = useState("");
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         AsyncStorage.getItem("user").then((raw) => {
@@ -261,20 +247,19 @@ const FollowersPage = () => {
                 const res = await getFollowers(userId);
                 setFollowers(res.data.followers || []);
                 setUsername(res.data.username || "");
-            } catch (e) { console.error(e); }
-            finally { setLoading(false); }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
         };
         fetch();
     }, [userId]);
 
-    const filtered = followers.filter((u) =>
-        u.username.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = followers.filter((u) => u.username.toLowerCase().includes(search.toLowerCase()));
 
     const handleFollowChange = (uid: number, following: boolean, requestActive: boolean) => {
-        setFollowers((prev) =>
-            prev.map((u) => u.id === uid ? { ...u, is_following: following, is_request_active: requestActive } : u)
-        );
+        setFollowers((prev) => prev.map((u) => (u.id === uid ? { ...u, is_following: following, is_request_active: requestActive } : u)));
     };
 
     const handleRemove = (uid: number) => {
@@ -282,7 +267,7 @@ const FollowersPage = () => {
     };
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={["top"]}>
+        <SafeAreaView style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]} edges={["top"]}>
             {/* ── Header ── */}
             <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
                 <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { borderColor: colors.border }]} activeOpacity={0.7}>
@@ -290,9 +275,7 @@ const FollowersPage = () => {
                 </TouchableOpacity>
                 <View>
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Followers</Text>
-                    {!!username && (
-                        <Text style={[styles.headerSub, { color: colors.textDisabled }]}>@{username}</Text>
-                    )}
+                    {!!username && <Text style={[styles.headerSub, { color: colors.textDisabled }]}>@{username}</Text>}
                 </View>
             </View>
 
@@ -325,19 +308,17 @@ const FollowersPage = () => {
                 {/* ── List ── */}
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
                     {loading ? (
-                        Array(6).fill(0).map((_, i) => <SkeletonRow key={i} colors={colors} />)
+                        Array(6)
+                            .fill(0)
+                            .map((_, i) => <SkeletonRow key={i} colors={colors} />)
                     ) : filtered.length === 0 ? (
                         <View style={styles.emptyState}>
                             <View style={[styles.emptyIcon, { backgroundColor: colors.hover, borderColor: colors.border }]}>
                                 <Ionicons name="person-outline" size={26} color={colors.textDisabled} />
                             </View>
-                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                                {search ? "No results found" : "No followers yet"}
-                            </Text>
+                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{search ? "No results found" : "No followers yet"}</Text>
                             <Text style={[styles.emptySub, { color: colors.textDisabled }]}>
-                                {search
-                                    ? "Try a different search"
-                                    : "When someone follows this account, they'll appear here"}
+                                {search ? "Try a different search" : "When someone follows this account, they'll appear here"}
                             </Text>
                         </View>
                     ) : (
@@ -375,7 +356,16 @@ const styles = StyleSheet.create({
     body: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
 
     // Search
-    searchRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
+    searchRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        borderRadius: 10,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
     searchInput: { flex: 1, fontSize: 14 },
 
     // Count
@@ -409,7 +399,16 @@ const styles = StyleSheet.create({
     confirmAvatar: { width: 54, height: 54, borderRadius: 27, borderWidth: 1, marginBottom: 14 },
     confirmTitle: { fontWeight: "500", fontSize: 15, marginBottom: 6 },
     confirmSub: { fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 20 },
-    confirmRemoveBtn: { width: "100%", paddingVertical: 11, borderRadius: 10, alignItems: "center", backgroundColor: "rgba(229,57,53,0.08)", borderWidth: 1, borderColor: "rgba(229,57,53,0.3)", marginBottom: 8 },
+    confirmRemoveBtn: {
+        width: "100%",
+        paddingVertical: 11,
+        borderRadius: 10,
+        alignItems: "center",
+        backgroundColor: "rgba(229,57,53,0.08)",
+        borderWidth: 1,
+        borderColor: "rgba(229,57,53,0.3)",
+        marginBottom: 8,
+    },
     confirmRemoveText: { color: "#e53935", fontWeight: "500", fontSize: 13.5 },
     confirmCancelBtn: { width: "100%", paddingVertical: 11, borderRadius: 10, alignItems: "center", borderWidth: 1 },
     confirmCancelText: { fontWeight: "500", fontSize: 13.5 },

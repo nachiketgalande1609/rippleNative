@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
-    Modal,
-    StyleSheet,
-    Dimensions,
-    Pressable,
-    ScrollView,
-    ActivityIndicator,
-    Animated,
-} from "react-native";
+import { PanResponder } from "react-native";
+
+import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Dimensions, Pressable, ScrollView, ActivityIndicator, Animated } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -21,7 +11,7 @@ import socket from "../services/socket";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const STORY_DURATION = 8000;
+const STORY_DURATION = 6000;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Viewer {
@@ -54,46 +44,23 @@ interface StoryDialogProps {
 }
 
 // ── Progress Segment ───────────────────────────────────────────────────────────
-const ProgressSegment = ({
-    filled,
-    active,
-    progress,
-}: {
-    filled: boolean;
-    active: boolean;
-    progress: number;
-}) => (
+const ProgressSegment = ({ filled, active, progress }: { filled: boolean; active: boolean; progress: number }) => (
     <View style={styles.segmentTrack}>
-        <View
-            style={[
-                styles.segmentFill,
-                { width: filled ? "100%" : active ? `${progress}%` : "0%" },
-            ]}
-        />
+        <View style={[styles.segmentFill, { width: filled ? "100%" : active ? `${progress}%` : "0%" }]} />
     </View>
 );
 
 // ── Viewer Row ─────────────────────────────────────────────────────────────────
-const ViewerRow = ({
-    viewer,
-    createdAt,
-    onPress,
-}: {
-    viewer: Viewer;
-    createdAt: string;
-    onPress: () => void;
-}) => (
+const ViewerRow = ({ viewer, createdAt, onPress }: { viewer: Viewer; createdAt: string; onPress: () => void }) => (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.viewerRow}>
         <Image
-            source={
-                viewer.viewer_profile_picture
-                    ? { uri: viewer.viewer_profile_picture }
-                    : require("../assets/profile_blank.png")
-            }
+            source={viewer.viewer_profile_picture ? { uri: viewer.viewer_profile_picture } : require("../assets/profile_blank.png")}
             style={styles.viewerAvatar}
         />
         <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.viewerUsername} numberOfLines={1}>{viewer.viewer_username}</Text>
+            <Text style={styles.viewerUsername} numberOfLines={1}>
+                {viewer.viewer_username}
+            </Text>
             <Text style={styles.viewerTime}>{timeAgo(createdAt)}</Text>
         </View>
     </TouchableOpacity>
@@ -120,6 +87,19 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
     const isLongPress = useRef(false);
     const videoRef = useRef<Video>(null);
     const bottomSheetRef = useRef<BottomSheet>(null);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                return gestureState.dy > 10 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                if (gestureState.dy > 80) {
+                    handleClose();
+                }
+            },
+        }),
+    ).current;
 
     // Load current user
     useEffect(() => {
@@ -171,11 +151,6 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
         }
     }, [currentIndex, cancelAnimation, progressAnim]);
 
-    const handlePauseToggle = useCallback(() => {
-        setPaused((p) => !p);
-        setShowControls(true);
-    }, []);
-
     const handleDrawerToggle = useCallback(() => {
         setDrawerOpen((prev) => {
             setPaused(!prev);
@@ -190,6 +165,11 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
             controlsTimeout.current = setTimeout(() => setShowControls(false), 2500);
         }
     }, [paused]);
+
+    const handlePauseToggle = useCallback(() => {
+        setPaused((p) => !p);
+        resetControlsTimer(); // ← add this
+    }, [resetControlsTimer]);
 
     // Story group change
     useEffect(() => {
@@ -254,14 +234,6 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
         };
     }, [currentIndex, open, isMediaLoaded, paused, selectedUserStories.length, handleClose]);
 
-    // Controls auto-hide
-    useEffect(() => {
-        if (!paused) {
-            controlsTimeout.current = setTimeout(() => setShowControls(false), 2500);
-        }
-        return () => { if (controlsTimeout.current) clearTimeout(controlsTimeout.current); };
-    }, [paused, showControls]);
-
     if (!open) return null;
     if (!selectedUserStories.length || !selectedUserStories[currentIndex]) return null;
 
@@ -271,27 +243,15 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
 
     return (
         <Modal visible={open} animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
-            <View style={styles.root}>
-
+            <View style={styles.root} {...panResponder.panHandlers}>
                 {/* ── Ambient background ── */}
-                {currentStory.media_type === "image" && (
-                    <Image
-                        source={{ uri: currentStory.media_url }}
-                        style={styles.ambientBg}
-                        blurRadius={20}
-                    />
-                )}
+                {currentStory.media_type === "image" && <Image source={{ uri: currentStory.media_url }} style={styles.ambientBg} blurRadius={20} />}
                 <View style={styles.ambientOverlay} />
 
                 {/* ── Progress bars ── */}
                 <View style={styles.progressRow}>
                     {selectedUserStories.map((_, idx) => (
-                        <ProgressSegment
-                            key={idx}
-                            filled={idx < currentIndex}
-                            active={idx === currentIndex}
-                            progress={progress}
-                        />
+                        <ProgressSegment key={idx} filled={idx < currentIndex} active={idx === currentIndex} progress={progress} />
                     ))}
                 </View>
 
@@ -304,35 +264,25 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                             activeOpacity={0.8}
                         >
                             <Image
-                                source={
-                                    currentGroup.profile_picture
-                                        ? { uri: currentGroup.profile_picture }
-                                        : require("../assets/profile_blank.png")
-                                }
+                                source={currentGroup.profile_picture ? { uri: currentGroup.profile_picture } : require("../assets/profile_blank.png")}
                                 style={styles.headerAvatar}
                             />
                             <View style={{ minWidth: 0 }}>
-                                <Text style={styles.headerUsername} numberOfLines={1}>{currentGroup.username}</Text>
+                                <Text style={styles.headerUsername} numberOfLines={1}>
+                                    {currentGroup.username}
+                                </Text>
                                 <Text style={styles.headerTime}>{timeAgo(currentStory.created_at)}</Text>
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.headerActions}>
                             <TouchableOpacity onPress={handlePauseToggle} style={styles.headerBtn}>
-                                <Ionicons
-                                    name={paused ? "play" : "pause"}
-                                    size={18}
-                                    color="rgba(255,255,255,0.85)"
-                                />
+                                <Ionicons name={paused ? "play" : "pause"} size={18} color="rgba(255,255,255,0.85)" />
                             </TouchableOpacity>
 
                             {currentStory.media_type === "video" && (
                                 <TouchableOpacity onPress={() => setIsMuted((m) => !m)} style={styles.headerBtn}>
-                                    <Ionicons
-                                        name={isMuted ? "volume-mute" : "volume-high"}
-                                        size={18}
-                                        color="rgba(255,255,255,0.85)"
-                                    />
+                                    <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="rgba(255,255,255,0.85)" />
                                 </TouchableOpacity>
                             )}
 
@@ -356,7 +306,7 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                         if (isLongPress.current) {
                             isLongPress.current = false;
                             setPaused(false);
-                            setShowControls(true);
+                            resetControlsTimer(); // ← instead of setShowControls(true)
                         }
                     }}
                 >
@@ -397,12 +347,22 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                         <TouchableOpacity
                             style={{ flex: 1 }}
                             activeOpacity={1}
-                            onPress={() => { if (!isLongPress.current) handlePrev(); }}
+                            onPress={() => {
+                                if (!isLongPress.current) {
+                                    resetControlsTimer();
+                                    handlePrev();
+                                }
+                            }}
                         />
                         <TouchableOpacity
                             style={{ flex: 2 }}
                             activeOpacity={1}
-                            onPress={() => { if (!isLongPress.current) handleNext(); }}
+                            onPress={() => {
+                                if (!isLongPress.current) {
+                                    resetControlsTimer();
+                                    handleNext();
+                                }
+                            }}
                         />
                     </View>
 
@@ -415,28 +375,6 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                         </View>
                     )}
 
-                    {/* Prev arrow */}
-                    {currentIndex > 0 && showControls && (
-                        <TouchableOpacity
-                            style={[styles.navArrow, { left: 10 }]}
-                            onPress={handlePrev}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="chevron-back" size={18} color="white" />
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Next arrow */}
-                    {currentIndex < selectedUserStories.length - 1 && showControls && (
-                        <TouchableOpacity
-                            style={[styles.navArrow, { right: 10 }]}
-                            onPress={handleNext}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="chevron-forward" size={18} color="white" />
-                        </TouchableOpacity>
-                    )}
-
                     {/* Caption */}
                     {!!currentStory.caption && (
                         <View style={styles.captionWrapper} pointerEvents="none">
@@ -447,11 +385,7 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
 
                 {/* ── Views pill ── */}
                 <View style={styles.viewsPill}>
-                    <TouchableOpacity
-                        onPress={handleDrawerToggle}
-                        activeOpacity={0.8}
-                        style={styles.viewsPillInner}
-                    >
+                    <TouchableOpacity onPress={handleDrawerToggle} activeOpacity={0.8} style={styles.viewsPillInner}>
                         <Ionicons name="eye-outline" size={14} color="rgba(255,255,255,0.75)" />
                         <Text style={styles.viewsText}>
                             {viewerCount} {viewerCount === 1 ? "view" : "views"}
@@ -460,9 +394,7 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                 </View>
 
                 {/* ── Viewers Bottom Sheet ── */}
-                {drawerOpen && (
-                    <Pressable style={styles.sheetBackdrop} onPress={handleDrawerToggle} />
-                )}
+                {drawerOpen && <Pressable style={styles.sheetBackdrop} onPress={handleDrawerToggle} />}
                 <BottomSheet
                     ref={bottomSheetRef}
                     snapPoints={["65%"]}
@@ -509,7 +441,6 @@ const StoryDialog: React.FC<StoryDialogProps> = ({ open, onClose, stories, selec
                         )}
                     </BottomSheetScrollView>
                 </BottomSheet>
-
             </View>
         </Modal>
     );
@@ -532,9 +463,17 @@ const styles = StyleSheet.create({
 
     // Header
     header: {
-        position: "absolute", top: 62, left: 0, right: 0,
-        paddingHorizontal: 12, paddingBottom: 14, paddingTop: 8,
-        flexDirection: "row", alignItems: "center", gap: 8, zIndex: 15,
+        position: "absolute",
+        top: 62,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 12,
+        paddingBottom: 14,
+        paddingTop: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        zIndex: 15,
     },
     headerUser: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
     headerAvatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.9)" },
@@ -552,11 +491,23 @@ const styles = StyleSheet.create({
     tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: "row", zIndex: 5 },
 
     // Paused
-    pausedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", zIndex: 6 },
-    pausedIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
-
-    // Nav arrows
-    navArrow: { position: "absolute", top: "50%", marginTop: -18, width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(0,0,0,0.3)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", zIndex: 10 },
+    pausedOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 6,
+    },
+    pausedIcon: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: "rgba(255,255,255,0.12)",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.2)",
+    },
 
     // Caption
     captionWrapper: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingBottom: 20, paddingTop: 48, zIndex: 4 },
@@ -564,7 +515,17 @@ const styles = StyleSheet.create({
 
     // Views pill
     viewsPill: { position: "absolute", bottom: 28, left: 0, right: 0, alignItems: "center", zIndex: 20 },
-    viewsPillInner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 30, backgroundColor: "rgba(255,255,255,0.12)", borderWidth: 1, borderColor: "rgba(255,255,255,0.16)" },
+    viewsPillInner: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 30,
+        backgroundColor: "rgba(255,255,255,0.12)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.16)",
+    },
     viewsText: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600" },
 
     // Bottom sheet

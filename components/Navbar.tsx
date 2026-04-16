@@ -392,7 +392,7 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
                     },
                 ]}
             >
-                <NavBtn item={{ segment: "", icon: "home-outline", activeIcon: "home" }} />
+                <NavBtn item={{ segment: "home", icon: "home-outline", activeIcon: "home" }} />
                 <NavBtn
                     item={{
                         segment: "search",
