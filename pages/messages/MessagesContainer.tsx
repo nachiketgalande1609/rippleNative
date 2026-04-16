@@ -9,6 +9,9 @@ import {
   ScrollView,
   Linking,
   Animated,
+  Modal,
+  Pressable,
+  Dimensions,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -16,6 +19,7 @@ import { useThemeColors } from "../../hooks/useThemeColors";
 import { getMessagesDataForSelectedUser } from "../../services/api";
 
 const ACCENT = "#7c5cfc";
+const { width: SCREEN_W } = Dimensions.get("window");
 
 interface ReactionDetail {
   user_id: string;
@@ -88,6 +92,21 @@ function formatTime(ts: string) {
   });
 }
 
+function formatDetailTime(ts: string) {
+  const d = new Date(ts);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const timeStr = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const dateStr = isToday
+    ? "Today"
+    : d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return { time: timeStr, date: dateStr };
+}
+
 // ── Typing indicator ───────────────────────────────────────────────────────────
 function TypingIndicator({ colors }: { colors: any }) {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -99,23 +118,11 @@ function TypingIndicator({ colors }: { colors: any }) {
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(d, {
-            toValue: -4,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(d, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
+          Animated.timing(d, { toValue: -4, duration: 300, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 0, duration: 300, useNativeDriver: true }),
+        ])
       );
-    Animated.parallel([
-      anim(dot1, 0),
-      anim(dot2, 150),
-      anim(dot3, 300),
-    ]).start();
+    Animated.parallel([anim(dot1, 0), anim(dot2, 150), anim(dot3, 300)]).start();
   }, []);
 
   return (
@@ -130,10 +137,7 @@ function TypingIndicator({ colors }: { colors: any }) {
           key={i}
           style={[
             styles.typingDot,
-            {
-              backgroundColor: colors.textDisabled,
-              transform: [{ translateY: d }],
-            },
+            { backgroundColor: colors.textDisabled, transform: [{ translateY: d }] },
           ]}
         />
       ))}
@@ -148,17 +152,9 @@ function MessageSkeleton({ colors }: { colors: any }) {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 0.4,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
+        Animated.timing(pulse, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
     ).start();
   }, []);
 
@@ -167,15 +163,10 @@ function MessageSkeleton({ colors }: { colors: any }) {
       {[true, false, true, false, true, false, true].map((self, i) => (
         <View
           key={i}
-          style={[
-            styles.skeletonRow,
-            { justifyContent: self ? "flex-end" : "flex-start" },
-          ]}
+          style={[styles.skeletonRow, { justifyContent: self ? "flex-end" : "flex-start" }]}
         >
           {!self && (
-            <View
-              style={[styles.skeletonAvatar, { backgroundColor: colors.hover }]}
-            />
+            <View style={[styles.skeletonAvatar, { backgroundColor: colors.hover }]} />
           )}
           <View
             style={[
@@ -186,6 +177,327 @@ function MessageSkeleton({ colors }: { colors: any }) {
         </View>
       ))}
     </Animated.View>
+  );
+}
+
+// ── Message Details Sheet ──────────────────────────────────────────────────────
+function MessageDetailsSheet({
+  visible,
+  msg,
+  colors,
+  isDark,
+  onClose,
+}: {
+  visible: boolean;
+  msg: Message | null;
+  colors: any;
+  isDark: boolean;
+  onClose: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 200,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!msg) return null;
+
+  const sent = formatDetailTime(msg.timestamp);
+  // Simulate delivered/read times (offset by a few seconds for demo;
+  // replace with real timestamps from your message object if available)
+  const deliveredTs = new Date(new Date(msg.timestamp).getTime() + 2000).toISOString();
+  const readTs = msg.read
+    ? new Date(new Date(msg.timestamp).getTime() + 15000).toISOString()
+    : null;
+  const delivered = msg.delivered ? formatDetailTime(deliveredTs) : null;
+  const read = readTs ? formatDetailTime(readTs) : null;
+
+  const rows: { icon: string; iconColor: string; bgColor: string; label: string; info: { time: string; date: string } | null; pending?: boolean }[] = [
+    {
+      icon: "checkmark",
+      iconColor: colors.textDisabled,
+      bgColor: colors.hover,
+      label: "Sent",
+      info: sent,
+    },
+    {
+      icon: "checkmark-done",
+      iconColor: msg.delivered ? colors.textDisabled : colors.textDisabled,
+      bgColor: colors.hover,
+      label: "Delivered",
+      info: delivered,
+      pending: !msg.delivered,
+    },
+    {
+      icon: "checkmark-done",
+      iconColor: ACCENT,
+      bgColor: isDark ? "rgba(124,92,252,0.15)" : "rgba(124,92,252,0.08)",
+      label: "Read",
+      info: read,
+      pending: !msg.read,
+    },
+  ];
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <Animated.View
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: colors.bg,
+              borderTopColor: colors.border,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            {/* Handle */}
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+
+            {/* Title */}
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
+              Message info
+            </Text>
+
+            {/* Bubble preview */}
+            {!!msg.message_text && (
+              <View style={styles.sheetBubbleWrap}>
+                <View style={styles.sheetBubble}>
+                  <Text style={styles.sheetBubbleText} numberOfLines={3}>
+                    {msg.message_text}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Divider */}
+            <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
+
+            {/* Detail rows */}
+            {rows.map((row, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.detailRow,
+                  { borderBottomColor: colors.border },
+                  i === rows.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <View style={[styles.detailIconWrap, { backgroundColor: row.bgColor }]}>
+                  <Ionicons
+                    name={row.icon as any}
+                    size={15}
+                    color={row.pending ? colors.textDisabled : row.iconColor}
+                  />
+                </View>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                  {row.label}
+                </Text>
+                {row.pending || !row.info ? (
+                  <Text style={[styles.detailPending, { color: colors.textDisabled }]}>
+                    Pending
+                  </Text>
+                ) : (
+                  <View style={styles.detailTimeWrap}>
+                    <Text style={[styles.detailTime, { color: colors.textPrimary }]}>
+                      {row.info.time}
+                    </Text>
+                    <Text style={[styles.detailDate, { color: colors.textDisabled }]}>
+                      {row.info.date}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </Pressable>
+        </Animated.View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ── Popup Menu ─────────────────────────────────────────────────────────────────
+const REACTIONS = ["❤️", "😂", "😮", "😢", "👍", "🙏"];
+
+function PopupMenu({
+  visible,
+  position,
+  isSelf,
+  colors,
+  isDark,
+  onReply,
+  onDelete,
+  onReact,
+  onInfo,
+  onClose,
+}: {
+  visible: boolean;
+  position: { top: number; left: number; width: number; height: number };
+  isSelf: boolean;
+  colors: any;
+  isDark: boolean;
+  onReply: () => void;
+  onDelete: () => void;
+  onReact: (r: string) => void;
+  onInfo: () => void;
+  onClose: () => void;
+}) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          damping: 18,
+          stiffness: 280,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.85);
+    }
+  }, [visible]);
+
+  // Calculate popup position: prefer above the bubble, fall back to below
+  const POPUP_W = 200;
+  const EMOJI_H = 52;
+  const MENU_H = isSelf ? 184 : 140; // approx
+  const GAP = 8;
+  const PADDING = 12;
+
+  const spaceAbove = position.top - EMOJI_H - MENU_H - GAP * 2;
+  const showAbove = spaceAbove > 20;
+
+  const popupTop = showAbove
+    ? position.top - EMOJI_H - MENU_H - GAP * 2
+    : position.top + position.height + GAP;
+
+  const rawLeft = isSelf ? position.left + position.width - POPUP_W : position.left;
+  const clampedLeft = Math.max(PADDING, Math.min(rawLeft, SCREEN_W - POPUP_W - PADDING));
+
+  const menuItems = [
+    { icon: "return-up-back-outline" as const, label: "Reply", onPress: onReply },
+    { icon: "information-circle-outline" as const, label: "Message info", onPress: onInfo },
+    { icon: "copy-outline" as const, label: "Copy text", onPress: onClose },
+    { icon: "arrow-redo-outline" as const, label: "Forward", onPress: onClose },
+    ...(isSelf
+      ? [{ icon: "trash-outline" as const, label: "Delete", onPress: onDelete, danger: true }]
+      : []),
+  ];
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable style={styles.popupBackdrop} onPress={onClose}>
+        <Animated.View
+          style={[
+            styles.popupWrapper,
+            {
+              top: popupTop,
+              left: clampedLeft,
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+        >
+          {/* Emoji reaction strip */}
+          <View
+            style={[
+              styles.emojiStrip,
+              {
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+                shadowColor: isDark ? "#000" : "#888",
+              },
+            ]}
+          >
+            {REACTIONS.map((emoji, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => onReact(emoji)}
+                style={styles.emojiBtnWrap}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Action menu */}
+          <View
+            style={[
+              styles.actionMenu,
+              {
+                backgroundColor: colors.bg,
+                borderColor: colors.border,
+                shadowColor: isDark ? "#000" : "#888",
+              },
+            ]}
+          >
+            {menuItems.map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => {
+                  onClose();
+                  item.onPress();
+                }}
+                activeOpacity={0.7}
+                style={[
+                  styles.actionItem,
+                  { borderBottomColor: colors.border },
+                  i === menuItems.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={16}
+                  color={(item as any).danger ? "#e53935" : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.actionLabel,
+                    { color: (item as any).danger ? "#e53935" : colors.textPrimary },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -217,26 +529,32 @@ function MessageBubble({
   onPostPress: (id: number) => void;
   onReact: (id: number, r: string) => void;
 }) {
-  const [showActions, setShowActions] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 0, height: 0 });
+  const bubbleRef = useRef<View>(null);
+
   const selfBg = ACCENT;
   const otherBg = colors.surface;
   const mediaW = 220;
+
   const originalMessage = msg.reply_to
     ? allMessages.find((m) => m.message_id === msg.reply_to)
     : null;
   const isImage = msg.file_url?.match(/\.(jpeg|jpg|png|gif|bmp|webp)$/i);
   const isVideo = msg.file_url?.match(/\.(mp4|webm|ogg|mov)$/i);
 
+  const openPopup = () => {
+    bubbleRef.current?.measureInWindow((x, y, width, height) => {
+      setPopupPos({ top: y, left: x, width, height });
+      setShowPopup(true);
+    });
+  };
+
   return (
-    // Outer View — actionsRow is a sibling of msgRow so it never shifts the bubble
     <View style={{ marginBottom: 10 }}>
       {/* ── Message row ── */}
-      <View
-        style={[
-          styles.msgRow,
-          { justifyContent: self ? "flex-end" : "flex-start" },
-        ]}
-      >
+      <View style={[styles.msgRow, { justifyContent: self ? "flex-end" : "flex-start" }]}>
         {!self && (
           <Image
             source={
@@ -248,12 +566,7 @@ function MessageBubble({
           />
         )}
 
-        <View
-          style={{
-            maxWidth: "75%",
-            alignItems: self ? "flex-end" : "flex-start",
-          }}
-        >
+        <View style={{ maxWidth: "75%", alignItems: self ? "flex-end" : "flex-start" }}>
           {/* Reply quote */}
           {originalMessage && (
             <View
@@ -267,9 +580,7 @@ function MessageBubble({
               ]}
             >
               <Text style={styles.replyQuoteUser}>
-                {originalMessage.sender_id === currentUser.id
-                  ? "You"
-                  : selectedUser.username}
+                {originalMessage.sender_id === currentUser.id ? "You" : selectedUser.username}
               </Text>
               <Text
                 style={[styles.replyQuoteText, { color: colors.textSecondary }]}
@@ -292,22 +603,12 @@ function MessageBubble({
               ]}
             >
               {msg.post.owner && (
-                <View
-                  style={[
-                    styles.postCardHeader,
-                    { borderBottomColor: colors.border },
-                  ]}
-                >
+                <View style={[styles.postCardHeader, { borderBottomColor: colors.border }]}>
                   <Image
                     source={{ uri: msg.post.owner.profile_picture }}
                     style={styles.postCardAvatar}
                   />
-                  <Text
-                    style={[
-                      styles.postCardOwner,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
+                  <Text style={[styles.postCardOwner, { color: colors.textPrimary }]}>
                     {msg.post.owner.username}
                   </Text>
                 </View>
@@ -322,15 +623,10 @@ function MessageBubble({
               {msg.post.content && (
                 <View style={{ padding: 10 }}>
                   <Text
-                    style={[
-                      styles.postCardContent,
-                      { color: colors.textSecondary },
-                    ]}
+                    style={[styles.postCardContent, { color: colors.textSecondary }]}
                     numberOfLines={2}
                   >
-                    <Text
-                      style={{ fontWeight: "500", color: colors.textPrimary }}
-                    >
+                    <Text style={{ fontWeight: "500", color: colors.textPrimary }}>
                       {msg.post.owner.username}{" "}
                     </Text>
                     {msg.post.content}
@@ -372,16 +668,9 @@ function MessageBubble({
               ]}
               activeOpacity={0.8}
             >
-              <MaterialIcons
-                name="insert-drive-file"
-                size={26}
-                color={colors.textDisabled}
-              />
+              <MaterialIcons name="insert-drive-file" size={26} color={colors.textDisabled} />
               <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.fileName, { color: colors.textPrimary }]}
-                  numberOfLines={1}
-                >
+                <Text style={[styles.fileName, { color: colors.textPrimary }]} numberOfLines={1}>
                   {msg.file_name}
                 </Text>
                 <Text style={[styles.fileSize, { color: colors.textDisabled }]}>
@@ -394,9 +683,10 @@ function MessageBubble({
           {/* Text bubble */}
           {!!msg.message_text && (
             <TouchableOpacity
-              onLongPress={() => setShowActions((v) => !v)}
+              ref={bubbleRef as any}
+              onLongPress={openPopup}
               activeOpacity={1}
-              delayLongPress={300}
+              delayLongPress={280}
             >
               <View
                 style={[
@@ -411,21 +701,14 @@ function MessageBubble({
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.bubbleText,
-                    { color: self ? "#fff" : colors.textPrimary },
-                  ]}
-                >
+                <Text style={[styles.bubbleText, { color: self ? "#fff" : colors.textPrimary }]}>
                   {msg.message_text}
                 </Text>
                 <Text
                   style={[
                     styles.bubbleTime,
                     {
-                      color: self
-                        ? "rgba(255,255,255,0.65)"
-                        : colors.textDisabled,
+                      color: self ? "rgba(255,255,255,0.65)" : colors.textDisabled,
                       textAlign: "right",
                     },
                   ]}
@@ -459,81 +742,38 @@ function MessageBubble({
             {msg.read ? (
               <Ionicons name="checkmark-done" size={13} color={ACCENT} />
             ) : msg.delivered ? (
-              <Ionicons
-                name="checkmark-done"
-                size={13}
-                color={colors.textDisabled}
-              />
+              <Ionicons name="checkmark-done" size={13} color={colors.textDisabled} />
             ) : msg.saved ? (
-              <Ionicons
-                name="checkmark"
-                size={13}
-                color={colors.textDisabled}
-              />
+              <Ionicons name="checkmark" size={13} color={colors.textDisabled} />
             ) : (
-              <Ionicons
-                name="time-outline"
-                size={12}
-                color={colors.textDisabled}
-              />
+              <Ionicons name="time-outline" size={12} color={colors.textDisabled} />
             )}
           </View>
         )}
       </View>
 
-      {/* ── Actions — sibling row, never shifts the bubble above ── */}
-      {showActions && !!msg.message_text && (
-        <View
-          style={[
-            styles.actionsRow,
-            {
-              justifyContent: self ? "flex-end" : "flex-start",
-              paddingRight: self ? 24 : 0,
-              paddingLeft: self ? 0 : 32,
-            },
-          ]}
-        >
-          {self && (
-            <TouchableOpacity
-              onPress={() => {
-                onDelete(msg);
-                setShowActions(false);
-              }}
-              style={[
-                styles.actionChip,
-                { backgroundColor: colors.hover, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons name="trash-outline" size={14} color="#e53935" />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => {
-              onReply(msg);
-              setShowActions(false);
-            }}
-            style={[
-              styles.actionChip,
-              { backgroundColor: colors.hover, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="return-up-back-outline"
-              size={14}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowActions(false)}
-            style={[
-              styles.actionChip,
-              { backgroundColor: colors.hover, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons name="close" size={14} color={colors.textDisabled} />
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* ── Popup Menu Modal ── */}
+      <PopupMenu
+        visible={showPopup}
+        position={popupPos}
+        isSelf={self}
+        colors={colors}
+        isDark={isDark}
+        onClose={() => setShowPopup(false)}
+        onReply={() => onReply(msg)}
+        onDelete={() => onDelete(msg)}
+        onReact={(r) => onReact(msg.message_id, r)}
+        onInfo={() => setShowDetails(true)}
+      />
+
+      {/* ── Message Details Sheet ── */}
+      <MessageDetailsSheet
+        visible={showDetails}
+        msg={msg}
+        colors={colors}
+        isDark={isDark}
+        onClose={() => setShowDetails(false)}
+      />
     </View>
   );
 }
@@ -569,9 +809,7 @@ const MessagesContainer: React.FC<Props> = ({
   }, [selectedUser?.id]);
 
   const currentIds = new Set(messages.map((m) => m.message_id));
-  const dedupedOlder = olderMessages.filter(
-    (m) => !currentIds.has(m.message_id),
-  );
+  const dedupedOlder = olderMessages.filter((m) => !currentIds.has(m.message_id));
   const allMessages = [...dedupedOlder, ...messages];
 
   const loadMore = useCallback(async () => {
@@ -580,11 +818,7 @@ const MessagesContainer: React.FC<Props> = ({
     setIsLoadingMore(true);
     const nextOffset = offsetRef.current + 20;
     try {
-      const res = await getMessagesDataForSelectedUser(
-        selectedUser.id,
-        nextOffset,
-        20,
-      );
+      const res = await getMessagesDataForSelectedUser(selectedUser.id, nextOffset, 20);
       const fetched: Message[] = res.data ?? [];
       if (fetched.length === 0) {
         hasMoreRef.current = false;
@@ -626,12 +860,7 @@ const MessagesContainer: React.FC<Props> = ({
             },
           ]}
         >
-          <Ionicons
-            name="chatbubble-outline"
-            size={28}
-            color={ACCENT}
-            style={{ opacity: 0.8 }}
-          />
+          <Ionicons name="chatbubble-outline" size={28} color={ACCENT} style={{ opacity: 0.8 }} />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
           No conversation selected
@@ -715,20 +944,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 3,
   },
-  replyQuoteUser: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: ACCENT,
-    marginBottom: 2,
-  },
+  replyQuoteUser: { fontSize: 11, fontWeight: "600", color: ACCENT, marginBottom: 2 },
   replyQuoteText: { fontSize: 12 },
 
-  postCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginBottom: 3,
-  },
+  postCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden", marginBottom: 3 },
   postCardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -741,12 +960,7 @@ const styles = StyleSheet.create({
   postCardOwner: { fontSize: 12.5, fontWeight: "500" },
   postCardContent: { fontSize: 12.5 },
 
-  mediaWrap: {
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    marginBottom: 3,
-  },
+  mediaWrap: { borderRadius: 12, overflow: "hidden", borderWidth: 1, marginBottom: 3 },
 
   fileBubble: {
     flexDirection: "row",
@@ -764,16 +978,6 @@ const styles = StyleSheet.create({
   bubble: { paddingHorizontal: 12, paddingVertical: 8 },
   bubbleText: { fontSize: 14, lineHeight: 21 },
   bubbleTime: { fontSize: 10.5, marginTop: 3 },
-
-  actionsRow: { flexDirection: "row", gap: 6, marginTop: 3, marginBottom: 2 },
-  actionChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
   reactions: {
     flexDirection: "row",
@@ -829,4 +1033,121 @@ const styles = StyleSheet.create({
   emptyTitle: { fontWeight: "500", fontSize: 15 },
   emptySub: { fontSize: 13 },
   skeletonFill: { flex: 1, padding: 12, gap: 10 },
+
+  // ── Popup ──
+  popupBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  popupWrapper: {
+    position: "absolute",
+    width: 200,
+    gap: 6,
+  },
+  emojiStrip: {
+    flexDirection: "row",
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    justifyContent: "space-between",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  emojiBtnWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiText: { fontSize: 20 },
+  actionMenu: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  actionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  actionLabel: { fontSize: 14 },
+
+  // ── Details sheet ──
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  sheetContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 14,
+  },
+  sheetBubbleWrap: {
+    alignItems: "flex-end",
+    marginBottom: 16,
+  },
+  sheetBubble: {
+    backgroundColor: ACCENT,
+    borderRadius: 14,
+    borderTopRightRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    maxWidth: "85%",
+  },
+  sheetBubbleText: {
+    fontSize: 13.5,
+    color: "#fff",
+    lineHeight: 19,
+  },
+  sheetDivider: {
+    height: 1,
+    marginBottom: 4,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+  },
+  detailIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  detailLabel: { fontSize: 14, flex: 1 },
+  detailPending: { fontSize: 13 },
+  detailTimeWrap: { alignItems: "flex-end" },
+  detailTime: { fontSize: 13, fontWeight: "500" },
+  detailDate: { fontSize: 11, marginTop: 1 },
 });

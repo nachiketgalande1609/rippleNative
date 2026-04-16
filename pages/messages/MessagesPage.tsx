@@ -245,7 +245,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
 
   // Socket — messageRead
   useEffect(() => {
-    socket.on("messageRead", () => {
+    const handler = (data: { senderId: number; receiverId: number }) => {
       setMessages((prev) =>
         prev.map((m) => ({
           ...m,
@@ -253,9 +253,11 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
           read_timestamp: new Date().toISOString(),
         })),
       );
-    });
+    };
+
+    socket.on("messageRead", handler);
     return () => {
-      socket.off("messageRead");
+      socket.off("messageRead", handler);
     };
   }, []);
 
@@ -267,8 +269,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
     );
     if (hasUnread) {
       socket.emit("messageRead", {
-        senderId: selectedUser.id,
-        receiverId: currentUser.id,
+        senderId: currentUser.id, // I am the one reading
+        receiverId: selectedUser.id, // their messages
       });
       setMessages((prev) => prev.map((m) => ({ ...m, read: true })));
     }
@@ -443,6 +445,7 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
           handleUserClick={handleUserClick}
           loading={loadingUsers}
           onRefresh={onRefresh}
+          refreshing={refreshing}
         />
       ) : (
         <KeyboardAvoidingView
