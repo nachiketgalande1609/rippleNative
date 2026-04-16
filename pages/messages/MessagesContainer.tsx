@@ -118,18 +118,34 @@ function TypingIndicator({ colors }: { colors: any }) {
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(d, { toValue: -4, duration: 300, useNativeDriver: true }),
-          Animated.timing(d, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ])
+          Animated.timing(d, {
+            toValue: -4,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(d, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]),
       );
-    Animated.parallel([anim(dot1, 0), anim(dot2, 150), anim(dot3, 300)]).start();
+    Animated.parallel([
+      anim(dot1, 0),
+      anim(dot2, 150),
+      anim(dot3, 300),
+    ]).start();
   }, []);
 
   return (
     <View
       style={[
         styles.typingRow,
-        { backgroundColor: colors.surface, borderColor: colors.border, marginLeft: 32 },
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          marginLeft: 32,
+        },
       ]}
     >
       {[dot1, dot2, dot3].map((d, i) => (
@@ -137,7 +153,10 @@ function TypingIndicator({ colors }: { colors: any }) {
           key={i}
           style={[
             styles.typingDot,
-            { backgroundColor: colors.textDisabled, transform: [{ translateY: d }] },
+            {
+              backgroundColor: colors.textDisabled,
+              transform: [{ translateY: d }],
+            },
           ]}
         />
       ))}
@@ -152,9 +171,17 @@ function MessageSkeleton({ colors }: { colors: any }) {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
+        Animated.timing(pulse, {
+          toValue: 0.4,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
     ).start();
   }, []);
 
@@ -163,10 +190,15 @@ function MessageSkeleton({ colors }: { colors: any }) {
       {[true, false, true, false, true, false, true].map((self, i) => (
         <View
           key={i}
-          style={[styles.skeletonRow, { justifyContent: self ? "flex-end" : "flex-start" }]}
+          style={[
+            styles.skeletonRow,
+            { justifyContent: self ? "flex-end" : "flex-start" },
+          ]}
         >
           {!self && (
-            <View style={[styles.skeletonAvatar, { backgroundColor: colors.hover }]} />
+            <View
+              style={[styles.skeletonAvatar, { backgroundColor: colors.hover }]}
+            />
           )}
           <View
             style={[
@@ -218,14 +250,23 @@ function MessageDetailsSheet({
   const sent = formatDetailTime(msg.timestamp);
   // Simulate delivered/read times (offset by a few seconds for demo;
   // replace with real timestamps from your message object if available)
-  const deliveredTs = new Date(new Date(msg.timestamp).getTime() + 2000).toISOString();
+  const deliveredTs = new Date(
+    new Date(msg.timestamp).getTime() + 2000,
+  ).toISOString();
   const readTs = msg.read
     ? new Date(new Date(msg.timestamp).getTime() + 15000).toISOString()
     : null;
   const delivered = msg.delivered ? formatDetailTime(deliveredTs) : null;
   const read = readTs ? formatDetailTime(readTs) : null;
 
-  const rows: { icon: string; iconColor: string; bgColor: string; label: string; info: { time: string; date: string } | null; pending?: boolean }[] = [
+  const rows: {
+    icon: string;
+    iconColor: string;
+    bgColor: string;
+    label: string;
+    info: { time: string; date: string } | null;
+    pending?: boolean;
+  }[] = [
     {
       icon: "checkmark",
       iconColor: colors.textDisabled,
@@ -272,7 +313,9 @@ function MessageDetailsSheet({
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
             {/* Handle */}
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.sheetHandle, { backgroundColor: colors.border }]}
+            />
 
             {/* Title */}
             <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
@@ -291,7 +334,9 @@ function MessageDetailsSheet({
             )}
 
             {/* Divider */}
-            <View style={[styles.sheetDivider, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.sheetDivider, { backgroundColor: colors.border }]}
+            />
 
             {/* Detail rows */}
             {rows.map((row, i) => (
@@ -303,26 +348,45 @@ function MessageDetailsSheet({
                   i === rows.length - 1 && { borderBottomWidth: 0 },
                 ]}
               >
-                <View style={[styles.detailIconWrap, { backgroundColor: row.bgColor }]}>
+                <View
+                  style={[
+                    styles.detailIconWrap,
+                    { backgroundColor: row.bgColor },
+                  ]}
+                >
                   <Ionicons
                     name={row.icon as any}
                     size={15}
                     color={row.pending ? colors.textDisabled : row.iconColor}
                   />
                 </View>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.detailLabel, { color: colors.textSecondary }]}
+                >
                   {row.label}
                 </Text>
                 {row.pending || !row.info ? (
-                  <Text style={[styles.detailPending, { color: colors.textDisabled }]}>
+                  <Text
+                    style={[
+                      styles.detailPending,
+                      { color: colors.textDisabled },
+                    ]}
+                  >
                     Pending
                   </Text>
                 ) : (
                   <View style={styles.detailTimeWrap}>
-                    <Text style={[styles.detailTime, { color: colors.textPrimary }]}>
+                    <Text
+                      style={[styles.detailTime, { color: colors.textPrimary }]}
+                    >
                       {row.info.time}
                     </Text>
-                    <Text style={[styles.detailDate, { color: colors.textDisabled }]}>
+                    <Text
+                      style={[
+                        styles.detailDate,
+                        { color: colors.textDisabled },
+                      ]}
+                    >
                       {row.info.date}
                     </Text>
                   </View>
@@ -368,7 +432,11 @@ function PopupMenu({
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           damping: 18,
@@ -396,16 +464,36 @@ function PopupMenu({
     ? position.top - EMOJI_H - MENU_H - GAP * 2
     : position.top + position.height + GAP;
 
-  const rawLeft = isSelf ? position.left + position.width - POPUP_W : position.left;
-  const clampedLeft = Math.max(PADDING, Math.min(rawLeft, SCREEN_W - POPUP_W - PADDING));
+  const rawLeft = isSelf
+    ? position.left + position.width - POPUP_W
+    : position.left;
+  const clampedLeft = Math.max(
+    PADDING,
+    Math.min(rawLeft, SCREEN_W - POPUP_W - PADDING),
+  );
 
   const menuItems = [
-    { icon: "return-up-back-outline" as const, label: "Reply", onPress: onReply },
-    { icon: "information-circle-outline" as const, label: "Message info", onPress: onInfo },
+    {
+      icon: "return-up-back-outline" as const,
+      label: "Reply",
+      onPress: onReply,
+    },
+    {
+      icon: "information-circle-outline" as const,
+      label: "Message info",
+      onPress: onInfo,
+    },
     { icon: "copy-outline" as const, label: "Copy text", onPress: onClose },
     { icon: "arrow-redo-outline" as const, label: "Forward", onPress: onClose },
     ...(isSelf
-      ? [{ icon: "trash-outline" as const, label: "Delete", onPress: onDelete, danger: true }]
+      ? [
+          {
+            icon: "trash-outline" as const,
+            label: "Delete",
+            onPress: onDelete,
+            danger: true,
+          },
+        ]
       : []),
   ];
 
@@ -482,12 +570,18 @@ function PopupMenu({
                 <Ionicons
                   name={item.icon}
                   size={16}
-                  color={(item as any).danger ? "#e53935" : colors.textSecondary}
+                  color={
+                    (item as any).danger ? "#e53935" : colors.textSecondary
+                  }
                 />
                 <Text
                   style={[
                     styles.actionLabel,
-                    { color: (item as any).danger ? "#e53935" : colors.textPrimary },
+                    {
+                      color: (item as any).danger
+                        ? "#e53935"
+                        : colors.textPrimary,
+                    },
                   ]}
                 >
                   {item.label}
@@ -531,12 +625,17 @@ function MessageBubble({
 }) {
   const [showPopup, setShowPopup] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 0, height: 0 });
+  const [popupPos, setPopupPos] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+  });
   const bubbleRef = useRef<View>(null);
 
   const selfBg = ACCENT;
   const otherBg = colors.surface;
-  const mediaW = 220;
+  const mediaW = 260;
 
   const originalMessage = msg.reply_to
     ? allMessages.find((m) => m.message_id === msg.reply_to)
@@ -554,7 +653,12 @@ function MessageBubble({
   return (
     <View style={{ marginBottom: 10 }}>
       {/* ── Message row ── */}
-      <View style={[styles.msgRow, { justifyContent: self ? "flex-end" : "flex-start" }]}>
+      <View
+        style={[
+          styles.msgRow,
+          { justifyContent: self ? "flex-end" : "flex-start" },
+        ]}
+      >
         {!self && (
           <Image
             source={
@@ -566,7 +670,12 @@ function MessageBubble({
           />
         )}
 
-        <View style={{ maxWidth: "75%", alignItems: self ? "flex-end" : "flex-start" }}>
+        <View
+          style={{
+            maxWidth: "75%",
+            alignItems: self ? "flex-end" : "flex-start",
+          }}
+        >
           {/* Reply quote */}
           {originalMessage && (
             <View
@@ -580,7 +689,9 @@ function MessageBubble({
               ]}
             >
               <Text style={styles.replyQuoteUser}>
-                {originalMessage.sender_id === currentUser.id ? "You" : selectedUser.username}
+                {originalMessage.sender_id === currentUser.id
+                  ? "You"
+                  : selectedUser.username}
               </Text>
               <Text
                 style={[styles.replyQuoteText, { color: colors.textSecondary }]}
@@ -603,12 +714,22 @@ function MessageBubble({
               ]}
             >
               {msg.post.owner && (
-                <View style={[styles.postCardHeader, { borderBottomColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.postCardHeader,
+                    { borderBottomColor: colors.border },
+                  ]}
+                >
                   <Image
                     source={{ uri: msg.post.owner.profile_picture }}
                     style={styles.postCardAvatar}
                   />
-                  <Text style={[styles.postCardOwner, { color: colors.textPrimary }]}>
+                  <Text
+                    style={[
+                      styles.postCardOwner,
+                      { color: colors.textPrimary },
+                    ]}
+                  >
                     {msg.post.owner.username}
                   </Text>
                 </View>
@@ -616,17 +737,29 @@ function MessageBubble({
               {msg.post.file_url && (
                 <Image
                   source={{ uri: msg.post.file_url }}
-                  style={{ width: mediaW, height: 160 }}
+                  style={{
+                    width: mediaW,
+                    height:
+                      msg.post.media_width && msg.post.media_height
+                        ? (msg.post.media_height / msg.post.media_width) *
+                          mediaW
+                        : mediaW,
+                  }}
                   resizeMode="cover"
                 />
               )}
               {msg.post.content && (
                 <View style={{ padding: 10 }}>
                   <Text
-                    style={[styles.postCardContent, { color: colors.textSecondary }]}
+                    style={[
+                      styles.postCardContent,
+                      { color: colors.textSecondary },
+                    ]}
                     numberOfLines={2}
                   >
-                    <Text style={{ fontWeight: "500", color: colors.textPrimary }}>
+                    <Text
+                      style={{ fontWeight: "500", color: colors.textPrimary }}
+                    >
                       {msg.post.owner.username}{" "}
                     </Text>
                     {msg.post.content}
@@ -668,9 +801,16 @@ function MessageBubble({
               ]}
               activeOpacity={0.8}
             >
-              <MaterialIcons name="insert-drive-file" size={26} color={colors.textDisabled} />
+              <MaterialIcons
+                name="insert-drive-file"
+                size={26}
+                color={colors.textDisabled}
+              />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.fileName, { color: colors.textPrimary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.fileName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
                   {msg.file_name}
                 </Text>
                 <Text style={[styles.fileSize, { color: colors.textDisabled }]}>
@@ -701,14 +841,21 @@ function MessageBubble({
                   },
                 ]}
               >
-                <Text style={[styles.bubbleText, { color: self ? "#fff" : colors.textPrimary }]}>
+                <Text
+                  style={[
+                    styles.bubbleText,
+                    { color: self ? "#fff" : colors.textPrimary },
+                  ]}
+                >
                   {msg.message_text}
                 </Text>
                 <Text
                   style={[
                     styles.bubbleTime,
                     {
-                      color: self ? "rgba(255,255,255,0.65)" : colors.textDisabled,
+                      color: self
+                        ? "rgba(255,255,255,0.65)"
+                        : colors.textDisabled,
                       textAlign: "right",
                     },
                   ]}
@@ -742,11 +889,23 @@ function MessageBubble({
             {msg.read ? (
               <Ionicons name="checkmark-done" size={13} color={ACCENT} />
             ) : msg.delivered ? (
-              <Ionicons name="checkmark-done" size={13} color={colors.textDisabled} />
+              <Ionicons
+                name="checkmark-done"
+                size={13}
+                color={colors.textDisabled}
+              />
             ) : msg.saved ? (
-              <Ionicons name="checkmark" size={13} color={colors.textDisabled} />
+              <Ionicons
+                name="checkmark"
+                size={13}
+                color={colors.textDisabled}
+              />
             ) : (
-              <Ionicons name="time-outline" size={12} color={colors.textDisabled} />
+              <Ionicons
+                name="time-outline"
+                size={12}
+                color={colors.textDisabled}
+              />
             )}
           </View>
         )}
@@ -809,7 +968,9 @@ const MessagesContainer: React.FC<Props> = ({
   }, [selectedUser?.id]);
 
   const currentIds = new Set(messages.map((m) => m.message_id));
-  const dedupedOlder = olderMessages.filter((m) => !currentIds.has(m.message_id));
+  const dedupedOlder = olderMessages.filter(
+    (m) => !currentIds.has(m.message_id),
+  );
   const allMessages = [...dedupedOlder, ...messages];
 
   const loadMore = useCallback(async () => {
@@ -818,7 +979,11 @@ const MessagesContainer: React.FC<Props> = ({
     setIsLoadingMore(true);
     const nextOffset = offsetRef.current + 20;
     try {
-      const res = await getMessagesDataForSelectedUser(selectedUser.id, nextOffset, 20);
+      const res = await getMessagesDataForSelectedUser(
+        selectedUser.id,
+        nextOffset,
+        20,
+      );
       const fetched: Message[] = res.data ?? [];
       if (fetched.length === 0) {
         hasMoreRef.current = false;
@@ -860,7 +1025,12 @@ const MessagesContainer: React.FC<Props> = ({
             },
           ]}
         >
-          <Ionicons name="chatbubble-outline" size={28} color={ACCENT} style={{ opacity: 0.8 }} />
+          <Ionicons
+            name="chatbubble-outline"
+            size={28}
+            color={ACCENT}
+            style={{ opacity: 0.8 }}
+          />
         </View>
         <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
           No conversation selected
@@ -944,10 +1114,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 3,
   },
-  replyQuoteUser: { fontSize: 11, fontWeight: "600", color: ACCENT, marginBottom: 2 },
+  replyQuoteUser: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: ACCENT,
+    marginBottom: 2,
+  },
   replyQuoteText: { fontSize: 12 },
 
-  postCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden", marginBottom: 3 },
+  postCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    marginBottom: 3,
+  },
   postCardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -960,7 +1140,12 @@ const styles = StyleSheet.create({
   postCardOwner: { fontSize: 12.5, fontWeight: "500" },
   postCardContent: { fontSize: 12.5 },
 
-  mediaWrap: { borderRadius: 12, overflow: "hidden", borderWidth: 1, marginBottom: 3 },
+  mediaWrap: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    marginBottom: 3,
+  },
 
   fileBubble: {
     flexDirection: "row",

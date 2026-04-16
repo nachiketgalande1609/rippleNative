@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
   },
   actionsLeft: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionGroup: { flexDirection: "row", alignItems: "center", gap: 3 },
-  actionBtn: { padding: 6 },
+  actionBtn: { padding: 6, paddingRight: 3 },
   actionCount: { fontSize: 13, fontWeight: "500", marginRight: 8 },
 
   // Caption
