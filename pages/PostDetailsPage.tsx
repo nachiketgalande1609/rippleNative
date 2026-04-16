@@ -142,8 +142,6 @@ const PostDetailPage = () => {
     const [submitting, setSubmitting] = useState(false);
 
     const likeScale = useRef(new Animated.Value(1)).current;
-    const heartOpacity = useRef(new Animated.Value(0)).current;
-    const heartScale = useRef(new Animated.Value(0.5)).current;
     const commentInputRef = useRef<TextInput>(null);
 
     const insets = useSafeAreaInsets();
@@ -258,7 +256,8 @@ const PostDetailPage = () => {
             const res = await deletePost(post.id);
             if (res?.success) {
                 setOptionsOpen(false);
-                router.back();
+                // Use replace so the profile page remounts and re-fetches posts
+                router.replace(`/profile/${post.user_id}`);
             }
         } catch {
             Alert.alert("Error", "Failed to delete post.");
@@ -277,9 +276,7 @@ const PostDetailPage = () => {
         }
     };
 
-    // Dynamic image height from aspect ratio
     const imageHeight = post?.media_width && post?.media_height ? Math.round((post.media_height / post.media_width) * SW) : 320;
-
     const canSend = commentText.trim().length > 0;
 
     if (loading) {
@@ -573,12 +570,10 @@ const styles = StyleSheet.create({
     root: { flex: 1 },
     notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-    // Top nav
     topNav: { height: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, borderBottomWidth: 0.5 },
     backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     navTitle: { fontWeight: "600", fontSize: 15 },
 
-    // Author
     authorRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -594,7 +589,6 @@ const styles = StyleSheet.create({
     locationText: { fontSize: 11 },
     postTime: { fontSize: 11.5, flexShrink: 0 },
 
-    // Actions
     actionsRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -607,12 +601,10 @@ const styles = StyleSheet.create({
     actionBtn: { padding: 7 },
     actionCount: { fontSize: 13, fontWeight: "500", marginRight: 4 },
 
-    // Caption
     captionSection: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5 },
     captionText: { fontSize: 13.5, lineHeight: 21 },
     captionUsername: { fontWeight: "700" },
 
-    // Comments
     commentsHeader: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5 },
     commentsTitle: { fontSize: 13, fontWeight: "600", letterSpacing: 0.1 },
     commentsList: {},
@@ -625,20 +617,17 @@ const styles = StyleSheet.create({
     emptyComments: { alignItems: "center", paddingVertical: 48, gap: 10 },
     emptyCommentText: { fontSize: 13.5 },
 
-    // Input bar
     inputBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 0.5 },
     inputAvatar: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, flexShrink: 0 },
     commentInput: { flex: 1, fontSize: 14, height: 36, paddingVertical: 0 },
     sendText: { fontSize: 14, flexShrink: 0 },
 
-    // Modals
     modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", padding: 16 },
     optionsCard: { width: 300, borderRadius: 18, borderWidth: 1, padding: 6 },
     sheetBtn: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
     sheetBtnIcon: { width: 32, height: 32, borderRadius: 9, alignItems: "center", justifyContent: "center" },
     sheetBtnLabel: { fontWeight: "500", fontSize: 14 },
 
-    // Edit modal
     editCard: { width: "92%", maxWidth: 460, borderRadius: 18, borderWidth: 1, overflow: "hidden" },
     editPreview: { width: "100%", height: 180 },
     editCloseBtn: {
@@ -658,7 +647,6 @@ const styles = StyleSheet.create({
     editActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
     editBtn: { borderRadius: 10, paddingHorizontal: 18, paddingVertical: 9 },
 
-    // Skeleton
     skeletonCircle: { width: 36, height: 36, borderRadius: 18, flexShrink: 0 },
     skeletonLine: { height: 13, borderRadius: 6 },
 });

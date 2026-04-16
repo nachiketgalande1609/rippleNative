@@ -161,19 +161,8 @@ export default function MessagesUserList({
         return q ? sorted.filter((u) => u.username.toLowerCase().includes(q)) : sorted;
     }, [sorted, search]);
 
-    const totalUnread = useMemo(() => users.reduce((n, u) => n + (u.unread_count || 0), 0), [users]);
-
     return (
         <View style={[styles.root, { backgroundColor: colors.bg, marginTop: -insets.top }]}>
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Messages</Text>
-                {!loading && totalUnread > 0 && (
-                    <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadBadgeText}>{totalUnread} new</Text>
-                    </View>
-                )}
-            </View>
 
             {/* Search */}
             <View style={[styles.searchWrap, { borderBottomColor: colors.border }]}>
@@ -295,31 +284,6 @@ export default function MessagesUserList({
 
 const styles = StyleSheet.create({
     root: { flex: 1 },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 18,
-        paddingTop: 18,
-        paddingBottom: 14,
-        borderBottomWidth: 0.5,
-    },
-    headerTitle: { fontSize: 15, fontWeight: "600", letterSpacing: -0.2 },
-    unreadBadge: {
-        backgroundColor: "rgba(55,138,221,0.12)",
-        borderWidth: 1,
-        borderColor: "rgba(55,138,221,0.3)",
-        borderRadius: 20,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-    },
-    unreadBadgeText: {
-        fontSize: 10.5,
-        fontWeight: "600",
-        color: "#378ADD",
-        letterSpacing: 0.2,
-    },
-
     searchWrap: {
         paddingHorizontal: 12,
         paddingVertical: 10,

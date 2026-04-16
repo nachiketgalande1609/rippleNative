@@ -1,10 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Linking, Animated, RefreshControl } from "react-native";
+import {
+    View,
+    Text,
+    Image,
+    TouchableOpacity,
+    StyleSheet,
+    ScrollView,
+    Dimensions,
+    Linking,
+    Animated,
+    RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getProfile, getUserPosts, followUser, cancelFollowRequest, getSavedPosts, unfollowUser } from "../services/api";
+import {
+    getProfile,
+    getUserPosts,
+    followUser,
+    cancelFollowRequest,
+    getSavedPosts,
+    unfollowUser,
+} from "../services/api";
 import { useGlobalStore } from "../store/store";
 import { useThemeColors } from "../hooks/useThemeColors";
 import FollowButton from "../components/FollowButton";
@@ -46,125 +64,45 @@ function ProfileSkeleton({ colors }: { colors: any }) {
     useEffect(() => {
         Animated.loop(
             Animated.sequence([
-                Animated.timing(pulse, {
-                    toValue: 0.4,
-                    duration: 750,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulse, {
-                    toValue: 1,
-                    duration: 750,
-                    useNativeDriver: true,
-                }),
+                Animated.timing(pulse, { toValue: 0.4, duration: 750, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
             ]),
         ).start();
     }, []);
 
     return (
-        <Animated.View style={{ opacity: pulse, paddingHorizontal: 16, paddingTop: 20, gap: 16 }}>
-            {/* Avatar */}
-            <View
-                style={{
-                    width: 92,
-                    height: 92,
-                    borderRadius: 46,
-                    backgroundColor: colors.hover,
-                }}
-            />
-
-            {/* Name + bio */}
-            <View style={{ gap: 8 }}>
-                <View
-                    style={{
-                        width: "45%",
-                        height: 15,
-                        borderRadius: 6,
-                        backgroundColor: colors.hover,
-                    }}
-                />
-                <View
-                    style={{
-                        width: "65%",
-                        height: 11,
-                        borderRadius: 6,
-                        backgroundColor: colors.hover,
-                    }}
-                />
-                <View
-                    style={{
-                        width: "50%",
-                        height: 11,
-                        borderRadius: 6,
-                        backgroundColor: colors.hover,
-                    }}
-                />
+        <Animated.View style={{ opacity: pulse, paddingHorizontal: 16, paddingTop: 20, gap: 14 }}>
+            {/* Header row: avatar + name/bio side by side */}
+            <View style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}>
+                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.hover }} />
+                <View style={{ flex: 1, gap: 8, paddingTop: 6 }}>
+                    <View style={{ width: "55%", height: 15, borderRadius: 6, backgroundColor: colors.hover }} />
+                    <View style={{ width: "85%", height: 11, borderRadius: 6, backgroundColor: colors.hover }} />
+                    <View style={{ width: "65%", height: 11, borderRadius: 6, backgroundColor: colors.hover }} />
+                </View>
             </View>
 
             {/* Stats */}
             <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
                 {[1, 2, 3].map((i) => (
                     <View key={i} style={{ alignItems: "center", gap: 6 }}>
-                        <View
-                            style={{
-                                width: 32,
-                                height: 18,
-                                borderRadius: 6,
-                                backgroundColor: colors.hover,
-                            }}
-                        />
-                        <View
-                            style={{
-                                width: 52,
-                                height: 10,
-                                borderRadius: 5,
-                                backgroundColor: colors.hover,
-                            }}
-                        />
+                        <View style={{ width: 32, height: 18, borderRadius: 6, backgroundColor: colors.hover }} />
+                        <View style={{ width: 52, height: 10, borderRadius: 5, backgroundColor: colors.hover }} />
                     </View>
                 ))}
             </View>
 
             {/* Buttons */}
             <View style={{ flexDirection: "row", gap: 8 }}>
-                <View
-                    style={{
-                        flex: 1,
-                        height: 34,
-                        borderRadius: 9,
-                        backgroundColor: colors.hover,
-                    }}
-                />
-                <View
-                    style={{
-                        flex: 1,
-                        height: 34,
-                        borderRadius: 9,
-                        backgroundColor: colors.hover,
-                    }}
-                />
+                <View style={{ flex: 1, height: 34, borderRadius: 9, backgroundColor: colors.hover }} />
+                <View style={{ flex: 1, height: 34, borderRadius: 9, backgroundColor: colors.hover }} />
             </View>
 
             {/* Grid */}
-            <View
-                style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    marginHorizontal: -16,
-                }}
-            >
-                {Array(9)
-                    .fill(0)
-                    .map((_, i) => (
-                        <View
-                            key={i}
-                            style={{
-                                width: CELL,
-                                height: CELL,
-                                margin: 0.5,
-                                backgroundColor: colors.hover,
-                            }}
-                        />
-                    ))}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -16 }}>
+                {Array(9).fill(0).map((_, i) => (
+                    <View key={i} style={{ width: CELL, height: CELL, margin: 0.5, backgroundColor: colors.hover }} />
+                ))}
             </View>
         </Animated.View>
     );
@@ -175,7 +113,11 @@ function PostCell({ post, onPress }: { post: any; onPress: () => void }) {
     const colors = useThemeColors();
     const isVideo = post.file_url && /\.(mp4|mov|webm)$/i.test(post.file_url);
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={[styles.cell, { backgroundColor: colors.hover }]}>
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.88}
+            style={[styles.cell, { backgroundColor: colors.hover }]}
+        >
             {post.file_url ? (
                 <Image source={{ uri: post.file_url }} style={styles.cellImage} resizeMode="cover" />
             ) : (
@@ -193,9 +135,23 @@ function PostCell({ post, onPress }: { post: any; onPress: () => void }) {
 }
 
 // ── Stat ───────────────────────────────────────────────────────────────────────
-function Stat({ value, label, onPress, colors }: { value: number; label: string; onPress?: () => void; colors: any }) {
+function Stat({
+    value,
+    label,
+    onPress,
+    colors,
+}: {
+    value: number;
+    label: string;
+    onPress?: () => void;
+    colors: any;
+}) {
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={onPress ? 0.7 : 1} style={styles.stat}>
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={onPress ? 0.7 : 1}
+            style={styles.stat}
+        >
             <Text style={[styles.statValue, { color: colors.textPrimary }]}>{formatCount(value)}</Text>
             <Text style={[styles.statLabel, { color: colors.textDisabled }]}>{label}</Text>
         </TouchableOpacity>
@@ -236,7 +192,8 @@ const ProfilePage = () => {
     }, []);
 
     const isOwnProfile = currentUser?.id == userId;
-    const canViewPosts = profileData && (isOwnProfile || !profileData.is_private || profileData.is_following);
+    const canViewPosts =
+        profileData && (isOwnProfile || !profileData.is_private || profileData.is_following);
 
     const fetchProfile = useCallback(async () => {
         if (!userId) return;
@@ -282,9 +239,11 @@ const ProfilePage = () => {
         fetchProfile();
         fetchUserPosts();
     }, [userId]);
+
     useEffect(() => {
         if (!postUploading && canViewPosts) fetchUserPosts();
     }, [postUploading]);
+
     useEffect(() => {
         if (tab === 1 && isOwnProfile && savedPosts.length === 0) fetchSaved();
     }, [tab, isOwnProfile]);
@@ -297,14 +256,7 @@ const ProfilePage = () => {
             if (res?.success) {
                 setIsFollowing(true);
                 setProfileData((p) =>
-                    p
-                        ? {
-                              ...p,
-                              is_following: true,
-                              is_request_active: true,
-                              followers_count: p.followers_count + 1,
-                          }
-                        : p,
+                    p ? { ...p, is_following: true, is_request_active: true, followers_count: p.followers_count + 1 } : p,
                 );
             }
         } catch (e) {
@@ -313,6 +265,7 @@ const ProfilePage = () => {
             setFollowLoading(false);
         }
     };
+
     const handleCancelRequest = async () => {
         if (!currentUser?.id || !userId) return;
         setFollowLoading(true);
@@ -321,14 +274,7 @@ const ProfilePage = () => {
             if (res?.success) {
                 setIsFollowing(false);
                 setProfileData((p) =>
-                    p
-                        ? {
-                              ...p,
-                              is_following: false,
-                              is_request_active: false,
-                              followers_count: p.followers_count - 1,
-                          }
-                        : p,
+                    p ? { ...p, is_following: false, is_request_active: false, followers_count: p.followers_count - 1 } : p,
                 );
             }
         } catch (e) {
@@ -337,6 +283,7 @@ const ProfilePage = () => {
             setFollowLoading(false);
         }
     };
+
     const handleUnfollow = async () => {
         if (!currentUser?.id || !userId) return;
         setFollowLoading(true);
@@ -345,14 +292,7 @@ const ProfilePage = () => {
             if (res?.success) {
                 setIsFollowing(false);
                 setProfileData((p) =>
-                    p
-                        ? {
-                              ...p,
-                              is_following: false,
-                              is_request_active: false,
-                              followers_count: p.followers_count - 1,
-                          }
-                        : p,
+                    p ? { ...p, is_following: false, is_request_active: false, followers_count: p.followers_count - 1 } : p,
                 );
             }
         } catch (e) {
@@ -368,14 +308,30 @@ const ProfilePage = () => {
     return (
         <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={[]}>
             {/* ── Top bar ── */}
-            <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} activeOpacity={0.7}>
-                    <Ionicons name="arrow-back" size={21} color={colors.textPrimary} />
+            <View
+                style={[
+                    styles.topBar,
+                    { backgroundColor: colors.surface, borderBottomColor: colors.border },
+                ]}
+            >
+                <TouchableOpacity
+                    onPress={() => router.push("/")}
+                    style={styles.iconBtn}
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={[styles.topBarTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                <Text
+                    style={[styles.topBarTitle, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                >
                     {profileData?.username ?? ""}
                 </Text>
-                <TouchableOpacity onPress={() => setOpenDialog(true)} style={styles.iconBtn} activeOpacity={0.7}>
+                <TouchableOpacity
+                    onPress={() => setOpenDialog(true)}
+                    style={styles.iconBtn}
+                    activeOpacity={0.7}
+                >
                     <Ionicons name="ellipsis-horizontal" size={21} color={colors.textPrimary} />
                 </TouchableOpacity>
             </View>
@@ -388,30 +344,15 @@ const ProfilePage = () => {
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 120 }}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} colors={[ACCENT]} />}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={ACCENT}
+                            colors={[ACCENT]}
+                        />
+                    }
                 >
-                    <View style={[styles.avatarArea, { backgroundColor: colors.surface }]}>
-                        <View
-                            style={[
-                                styles.avatarRingOuter,
-                                {
-                                    borderColor: colors.surface,
-                                    backgroundColor: colors.surface,
-                                },
-                            ]}
-                        >
-                            <Image
-                                source={profileData?.profile_picture ? { uri: profileData.profile_picture } : require("../assets/profile_blank.png")}
-                                style={styles.avatar}
-                            />
-                            {profileData?.is_verified && (
-                                <View style={styles.verifiedBadge}>
-                                    <Ionicons name="checkmark-circle" size={20} color="#1d9bf0" />
-                                </View>
-                            )}
-                        </View>
-                    </View>
-
                     {/* ── Profile info card ── */}
                     <View
                         style={[
@@ -422,46 +363,94 @@ const ProfilePage = () => {
                             },
                         ]}
                     >
-                        {/* Name row */}
-                        <View style={styles.nameRow}>
-                            <Text style={[styles.username, { color: colors.textPrimary }]}>{profileData?.username}</Text>
-                            {profileData?.is_verified && <Ionicons name="checkmark-circle" size={15} color="#1d9bf0" />}
+                        {/* ── HORIZONTAL HEADER: avatar left, name+bio right ── */}
+                        <View style={styles.headerRow}>
+                            {/* Avatar */}
+                            <View style={styles.avatarWrap}>
+                                <Image
+                                    source={
+                                        profileData?.profile_picture
+                                            ? { uri: profileData.profile_picture }
+                                            : require("../assets/profile_blank.png")
+                                    }
+                                    style={styles.avatar}
+                                />
+                                {profileData?.is_verified && (
+                                    <View style={styles.verifiedBadge}>
+                                        <Ionicons name="checkmark-circle" size={18} color="#1d9bf0" />
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Name + bio */}
+                            <View style={styles.headerInfo}>
+                                <View style={styles.nameRow}>
+                                    <Text
+                                        style={[styles.username, { color: colors.textPrimary }]}
+                                        numberOfLines={1}
+                                    >
+                                        {profileData?.username}
+                                    </Text>
+                                    {profileData?.is_verified && (
+                                        <Ionicons name="checkmark-circle" size={14} color="#1d9bf0" />
+                                    )}
+                                </View>
+
+                                {!!profileData?.bio?.trim() && (
+                                    <Text
+                                        style={[styles.bio, { color: colors.textSecondary }]}
+                                        numberOfLines={3}
+                                    >
+                                        {profileData.bio}
+                                    </Text>
+                                )}
+
+                                {/* Meta chips — compact, inline */}
+                                <View style={styles.metaRow}>
+                                    {profileData?.location && (
+                                        <View style={[styles.metaChip, { backgroundColor: colors.hover }]}>
+                                            <Ionicons name="location-outline" size={11} color={colors.textDisabled} />
+                                            <Text
+                                                style={[styles.metaChipText, { color: colors.textSecondary }]}
+                                                numberOfLines={1}
+                                            >
+                                                {profileData.location}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {profileData?.website && (
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                profileData.website && Linking.openURL(profileData.website)
+                                            }
+                                            activeOpacity={0.7}
+                                            style={[styles.metaChip, { backgroundColor: `rgba(124,92,252,0.1)` }]}
+                                        >
+                                            <Ionicons name="link-outline" size={11} color={ACCENT} />
+                                            <Text
+                                                style={[styles.metaChipText, { color: ACCENT }]}
+                                                numberOfLines={1}
+                                            >
+                                                {profileData.website.replace(/^https?:\/\//, "")}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    {profileData?.created_at && (
+                                        <View style={[styles.metaChip, { backgroundColor: colors.hover }]}>
+                                            <Ionicons name="calendar-outline" size={11} color={colors.textDisabled} />
+                                            <Text style={[styles.metaChipText, { color: colors.textDisabled }]}>
+                                                {new Date(profileData.created_at).toLocaleDateString("en-US", {
+                                                    month: "short",
+                                                    year: "numeric",
+                                                })}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
                         </View>
 
-                        {/* Bio */}
-                        {!!profileData?.bio?.trim() && <Text style={[styles.bio, { color: colors.textSecondary }]}>{profileData.bio}</Text>}
-
-                        {/* Meta chips */}
-                        <View style={styles.metaRow}>
-                            {profileData?.location && (
-                                <View style={[styles.metaChip, { backgroundColor: colors.hover }]}>
-                                    <Ionicons name="location-outline" size={12} color={colors.textDisabled} />
-                                    <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{profileData.location}</Text>
-                                </View>
-                            )}
-                            {profileData?.website && (
-                                <TouchableOpacity
-                                    onPress={() => profileData.website && Linking.openURL(profileData.website)}
-                                    activeOpacity={0.7}
-                                    style={[styles.metaChip, { backgroundColor: `rgba(124,92,252,0.1)` }]}
-                                >
-                                    <Ionicons name="link-outline" size={12} color={ACCENT} />
-                                    <Text style={[styles.metaChipText, { color: ACCENT }]} numberOfLines={1}>
-                                        {profileData.website.replace(/^https?:\/\//, "")}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                            {profileData?.created_at && (
-                                <View style={[styles.metaChip, { backgroundColor: colors.hover }]}>
-                                    <Ionicons name="calendar-outline" size={12} color={colors.textDisabled} />
-                                    <Text style={[styles.metaChipText, { color: colors.textDisabled }]}>
-                                        {new Date(profileData.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Stats row */}
+                        {/* ── Stats row ── */}
                         <View
                             style={[
                                 styles.statsRow,
@@ -471,7 +460,11 @@ const ProfilePage = () => {
                                 },
                             ]}
                         >
-                            <Stat value={profileData?.posts_count || 0} label="Posts" colors={colors} />
+                            <Stat
+                                value={profileData?.posts_count || 0}
+                                label="Posts"
+                                colors={colors}
+                            />
                             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                             <Stat
                                 value={profileData?.followers_count || 0}
@@ -488,7 +481,7 @@ const ProfilePage = () => {
                             />
                         </View>
 
-                        {/* Action buttons */}
+                        {/* ── Action buttons ── */}
                         <View style={styles.actionRow}>
                             {isOwnProfile ? (
                                 <>
@@ -497,28 +490,26 @@ const ProfilePage = () => {
                                         activeOpacity={0.8}
                                         style={[
                                             styles.actionBtn,
-                                            {
-                                                backgroundColor: colors.hover,
-                                                borderColor: colors.border,
-                                            },
+                                            { backgroundColor: colors.hover, borderColor: colors.border },
                                         ]}
                                     >
                                         <Ionicons name="create-outline" size={15} color={colors.textPrimary} />
-                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Edit profile</Text>
+                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>
+                                            Edit profile
+                                        </Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         onPress={() => setModalOpen(true)}
                                         activeOpacity={0.8}
                                         style={[
                                             styles.actionBtn,
-                                            {
-                                                backgroundColor: colors.hover,
-                                                borderColor: colors.border,
-                                            },
+                                            { backgroundColor: colors.hover, borderColor: colors.border },
                                         ]}
                                     >
                                         <Ionicons name="add-circle-outline" size={15} color={colors.textPrimary} />
-                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Add post</Text>
+                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>
+                                            Add post
+                                        </Text>
                                     </TouchableOpacity>
                                 </>
                             ) : currentUser?.id ? (
@@ -546,7 +537,9 @@ const ProfilePage = () => {
                                         ]}
                                     >
                                         <Ionicons name="chatbubble-outline" size={15} color={colors.textPrimary} />
-                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Message</Text>
+                                        <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>
+                                            Message
+                                        </Text>
                                     </TouchableOpacity>
                                 </>
                             ) : null}
@@ -565,7 +558,9 @@ const ProfilePage = () => {
                     >
                         {[
                             { icon: "grid", iconOut: "grid-outline", idx: 0 },
-                            ...(isOwnProfile ? [{ icon: "bookmark", iconOut: "bookmark-outline", idx: 1 }] : []),
+                            ...(isOwnProfile
+                                ? [{ icon: "bookmark", iconOut: "bookmark-outline", idx: 1 }]
+                                : []),
                         ].map((t) => (
                             <TouchableOpacity
                                 key={t.idx}
@@ -591,26 +586,47 @@ const ProfilePage = () => {
                     {/* ── Grid ── */}
                     {isFetchingActive ? (
                         <View style={styles.grid}>
-                            {Array(9)
-                                .fill(0)
-                                .map((_, i) => (
-                                    <View key={i} style={[styles.cell, { backgroundColor: colors.hover }]} />
-                                ))}
+                            {Array(9).fill(0).map((_, i) => (
+                                <View
+                                    key={i}
+                                    style={[styles.cell, { backgroundColor: colors.hover }]}
+                                />
+                            ))}
                         </View>
                     ) : !canViewPosts && tab === 0 ? (
                         <View style={styles.emptyState}>
-                            <View style={[styles.emptyIconWrap, { backgroundColor: colors.hover, borderColor: colors.border }]}>
+                            <View
+                                style={[
+                                    styles.emptyIconWrap,
+                                    { backgroundColor: colors.hover, borderColor: colors.border },
+                                ]}
+                            >
                                 <Ionicons name="lock-closed-outline" size={26} color={colors.textDisabled} />
                             </View>
-                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Private account</Text>
-                            <Text style={[styles.emptySub, { color: colors.textDisabled }]}>Follow to see their photos and videos</Text>
+                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                                Private account
+                            </Text>
+                            <Text style={[styles.emptySub, { color: colors.textDisabled }]}>
+                                Follow to see their photos and videos
+                            </Text>
                         </View>
                     ) : activePosts.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <View style={[styles.emptyIconWrap, { backgroundColor: colors.hover, borderColor: colors.border }]}>
-                                <Ionicons name={tab === 0 ? "camera-outline" : "bookmark-outline"} size={26} color={colors.textDisabled} />
+                            <View
+                                style={[
+                                    styles.emptyIconWrap,
+                                    { backgroundColor: colors.hover, borderColor: colors.border },
+                                ]}
+                            >
+                                <Ionicons
+                                    name={tab === 0 ? "camera-outline" : "bookmark-outline"}
+                                    size={26}
+                                    color={colors.textDisabled}
+                                />
                             </View>
-                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>{tab === 0 ? "No posts yet" : "Nothing saved"}</Text>
+                            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                                {tab === 0 ? "No posts yet" : "Nothing saved"}
+                            </Text>
                             <Text style={[styles.emptySub, { color: colors.textDisabled }]}>
                                 {tab === 0
                                     ? isOwnProfile
@@ -631,7 +647,11 @@ const ProfilePage = () => {
                     ) : (
                         <View style={styles.grid}>
                             {activePosts.map((post) => (
-                                <PostCell key={post.id} post={post} onPress={() => router.push(`/posts/${post.id}`)} />
+                                <PostCell
+                                    key={post.id}
+                                    post={post}
+                                    onPress={() => router.push(`/posts/${post.id}`)}
+                                />
                             ))}
                         </View>
                     )}
@@ -678,53 +698,79 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
 
-    // Avatar
-    avatarArea: {
-        alignItems: "flex-start",
+    // Info card
+    infoCard: {
         paddingHorizontal: 16,
-        paddingTop: 20,
-    }, // ← remove marginTop: -44
-    avatarRingOuter: {
-        width: 92,
-        height: 92,
-        borderRadius: 46,
-        borderWidth: 4,
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-    },
-    avatar: { width: 84, height: 84, borderRadius: 42 },
-    verifiedBadge: {
-        position: "absolute",
-        bottom: -2,
-        right: -2,
-        backgroundColor: "#fff",
-        borderRadius: 11,
+        paddingTop: 16,
+        paddingBottom: 0,
+        borderBottomWidth: 0.5,
     },
 
-    // Info card
-    infoCard: { paddingHorizontal: 16, paddingBottom: 0, borderBottomWidth: 0.5 },
+    // ── NEW: horizontal header ──────────────────────────────────────────────────
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 14,
+        marginBottom: 14,
+    },
+    avatarWrap: {
+        position: "relative",
+        width: 80,
+        height: 80,
+        flexShrink: 0,
+    },
+    avatar: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+    },
+    verifiedBadge: {
+        position: "absolute",
+        bottom: -1,
+        right: -1,
+        backgroundColor: "#fff",
+        borderRadius: 10,
+    },
+    headerInfo: {
+        flex: 1,
+        paddingTop: 4,
+        gap: 4,
+    },
+    // ────────────────────────────────────────────────────────────────────────────
+
     nameRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
-        marginTop: 10,
-        marginBottom: 4,
+        gap: 5,
     },
-    username: { fontWeight: "800", fontSize: 18, letterSpacing: -0.3 },
-    bio: { fontSize: 13.5, lineHeight: 21, marginBottom: 10, color: "#888" },
+    username: {
+        fontWeight: "800",
+        fontSize: 16,
+        letterSpacing: -0.3,
+        flexShrink: 1,
+    },
+    bio: {
+        fontSize: 13,
+        lineHeight: 19,
+        color: "#888",
+    },
 
     // Meta chips
-    metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
+    metaRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 5,
+        marginTop: 4,
+    },
     metaChip: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        gap: 3,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
         borderRadius: 20,
     },
-    metaChipText: { fontSize: 12, fontWeight: "500" },
+    metaChipText: { fontSize: 11, fontWeight: "500" },
 
     // Stats
     statsRow: {
@@ -735,13 +781,13 @@ const styles = StyleSheet.create({
         marginHorizontal: -16,
         paddingHorizontal: 8,
     },
-    stat: { flex: 1, alignItems: "center", paddingVertical: 14, gap: 3 },
-    statValue: { fontWeight: "700", fontSize: 18, letterSpacing: -0.3 },
+    stat: { flex: 1, alignItems: "center", paddingVertical: 12, gap: 2 },
+    statValue: { fontWeight: "700", fontSize: 17, letterSpacing: -0.3 },
     statLabel: { fontSize: 11.5 },
-    statDivider: { width: 0.5, height: 24, opacity: 0.4 },
+    statDivider: { width: 0.5, height: 22, opacity: 0.4 },
 
     // Action buttons
-    actionRow: { flexDirection: "row", gap: 8, paddingVertical: 14 },
+    actionRow: { flexDirection: "row", gap: 8, paddingVertical: 12 },
     actionBtn: {
         flex: 1,
         flexDirection: "row",
@@ -777,7 +823,7 @@ const styles = StyleSheet.create({
         padding: 3,
     },
 
-    // Empty
+    // Empty state
     emptyState: {
         alignItems: "center",
         paddingVertical: 72,
@@ -802,7 +848,4 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     createBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-
-    // Skeleton
-    skeletonAvatar: { width: 84, height: 84, borderRadius: 42 },
 });
