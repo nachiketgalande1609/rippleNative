@@ -8,7 +8,7 @@ import {
     Pressable,
     Image,
     Alert,
-    Clipboard,
+    Share,
 } from "react-native";
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -91,9 +91,11 @@ export default function MoreOptionsDialog({
     };
 
     const handleCopyLink = async () => {
-        const link = `https://yourapp.com/profile/${userId}`;
-        Clipboard.setString(link);
-        Alert.alert("Copied!", "Profile link copied to clipboard.");
+        try {
+            await Share.share({ message: `ripple://profile/${userId}` });
+        } catch (_e) {
+            // user cancelled share sheet
+        }
         handleCloseDialog();
     };
 
@@ -162,8 +164,8 @@ export default function MoreOptionsDialog({
                         )}
 
                         <DialogBtn
-                            icon={<MaterialIcons name="link" size={17} color="rgba(255,255,255,0.5)" />}
-                            label="Copy Profile Link"
+                            icon={<MaterialIcons name="share" size={17} color="rgba(255,255,255,0.5)" />}
+                            label="Share Profile"
                             onPress={handleCopyLink}
                         />
 

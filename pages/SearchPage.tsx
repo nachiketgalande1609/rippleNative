@@ -327,7 +327,7 @@ export default function SearchPage() {
         router.push(`/profile/${targetUser.id}`);
         addToSearchHistory(targetUser.id)
             .then(() => getSearchHistory())
-            .then((res) => setHistory(res.data.data || []))
+            .then((res) => setHistory(res.data || []))
             .catch(console.error);
     };
 

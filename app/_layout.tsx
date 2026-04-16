@@ -190,9 +190,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!user) return;
-    const handler = (data: any) => {
-      // Increment count when a new notification is pushed
-      setUnreadNotificationsCount((prev) => (prev ?? 0) + 1);
+    const handler = (_data: any) => {
+      const current = useGlobalStore.getState().unreadNotificationsCount ?? 0;
+      setUnreadNotificationsCount(current + 1);
     };
     socket.on("newNotification", handler);
     return () => {
