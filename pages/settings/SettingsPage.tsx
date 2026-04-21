@@ -48,7 +48,7 @@ export default function SettingsPage() {
                         style={[styles.backBtn, { backgroundColor: colors.hover, borderColor: colors.border }]}
                         activeOpacity={0.7}
                     >
-                        <Ionicons name="arrow-back" size={17} color={colors.textSecondary} />
+                        <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={[styles.detailTitle, { color: colors.textPrimary }]}>{activeItem.label}</Text>
                     <View style={{ width: 36 }} />

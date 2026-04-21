@@ -152,17 +152,20 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
         const badge = item.badge && item.badge > 0 ? item.badge : null;
         return (
             <TouchableOpacity onPress={() => router.push(item.segment === "" ? "/" : `/${item.segment}`)} style={styles.navBtn} activeOpacity={0.7}>
-                <View>
-                    <Ionicons
-                        name={(active ? item.activeIcon : item.icon) as any}
-                        size={26} // ← was 24
-                        color={active ? colors.textPrimary : colors.textDisabled}
-                    />
-                    {!!badge && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{badge > 99 ? "99+" : badge}</Text>
-                        </View>
-                    )}
+                <View style={styles.navBtnInner}>
+                    <View>
+                        <Ionicons
+                            name={(active ? item.activeIcon : item.icon) as any}
+                            size={26}
+                            color={active ? colors.textPrimary : colors.textDisabled}
+                        />
+                        {!!badge && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{badge > 99 ? "99+" : badge}</Text>
+                            </View>
+                        )}
+                    </View>
+                    {active && <View style={styles.activeDot} />}
                 </View>
             </TouchableOpacity>
         );
@@ -203,10 +206,13 @@ export default function NavBar({ unreadMessagesCount, unreadNotificationsCount, 
                 />
 
                 <TouchableOpacity onPress={() => router.push(`/profile/${currentUser?.id}`)} style={styles.navBtn} activeOpacity={0.7}>
-                    <Image
-                        source={currentUser?.profile_picture_url ? { uri: currentUser.profile_picture_url } : require("../assets/profile_blank.png")}
-                        style={[styles.profileAvatar, isActive(`profile/${currentUser?.id}`) && styles.profileAvatarActive]}
-                    />
+                    <View style={styles.navBtnInner}>
+                        <Image
+                            source={currentUser?.profile_picture_url ? { uri: currentUser.profile_picture_url } : require("../assets/profile_blank.png")}
+                            style={[styles.profileAvatar, isActive(`profile/${currentUser?.id}`) && styles.profileAvatarActive]}
+                        />
+                        {isActive(`profile/${currentUser?.id}`) && <View style={styles.activeDot} />}
+                    </View>
                 </TouchableOpacity>
             </View>
 
@@ -238,6 +244,16 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         width: 44,
         height: 44,
+    },
+    navBtnInner: {
+        alignItems: "center",
+        gap: 2,
+    },
+    activeDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: ACCENT,
     },
     createBtn: {
         width: 36,

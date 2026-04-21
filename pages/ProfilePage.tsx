@@ -374,7 +374,7 @@ const ProfilePage = () => {
           { backgroundColor: colors.surface, borderBottomColor: colors.border },
         ]}
       >
-        <TouchableOpacity onPress={() => router.push("/")} style={styles.iconBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: colors.textPrimary }]} numberOfLines={1}>

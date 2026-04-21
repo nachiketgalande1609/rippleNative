@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
         paddingLeft: 16,
     },
     brandText: {
-        fontFamily: "MomoSignature", // ← matches the key in useFonts
+        fontFamily: "MomoSignature",
         fontWeight: "400",
-        fontSize: 18, // signature fonts usually need to be larger
+        fontSize: 22,
         color: "#7c5cfc",
-        letterSpacing: 0, // signature fonts don't need letter spacing
+        letterSpacing: 0,
     },
     iconBtn: {
         width: 36,

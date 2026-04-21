@@ -598,7 +598,7 @@ const PostCard: React.FC<PostProps> = ({ post, fetchPosts }) => {
             <Text style={[styles.captionText, { color: colors.textPrimary }]}>
               <Text
                 onPress={() => router.push(`/profile/${post.user_id}`)}
-                style={styles.captionUsername}
+                style={[styles.captionUsername, { color: colors.textPrimary }]}
               >
                 {post.username}{" "}
               </Text>
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   captionText: { fontSize: 13.5, lineHeight: 20 },
-  captionUsername: { fontWeight: "700", fontSize: 13.5, color: "#f0f0f0" },
+  captionUsername: { fontWeight: "700", fontSize: 13.5 },
   viewComments: { fontSize: 13, marginTop: 1 },
   timeAgo: { fontSize: 10.5, marginTop: 2, letterSpacing: 0.2 },
 

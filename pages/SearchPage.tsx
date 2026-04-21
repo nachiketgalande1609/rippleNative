@@ -493,7 +493,9 @@ export default function SearchPage() {
                             autoCapitalize="none"
                             returnKeyType="search"
                         />
-                        {(activeTab === 0 ? userQuery : tagQuery) ? (
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color={colors.textDisabled} />
+                        ) : (activeTab === 0 ? userQuery : tagQuery) ? (
                             <TouchableOpacity
                                 onPress={() => (activeTab === 0 ? setUserQuery("") : setTagQuery(""))}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -502,13 +504,6 @@ export default function SearchPage() {
                             </TouchableOpacity>
                         ) : null}
                     </View>
-
-                    {/* Loading bar */}
-                    {isLoading && (
-                        <View style={styles.loadingBar}>
-                            <View style={[styles.loadingBarFill, { backgroundColor: ACCENT }]} />
-                        </View>
-                    )}
                 </View>
 
                 {/* Tabs */}
@@ -569,7 +564,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingTop: 10,
         paddingBottom: 10,
-        position: "relative",
     },
     inputRow: {
         flexDirection: "row",
@@ -581,17 +575,6 @@ const styles = StyleSheet.create({
         height: 42,
     },
     input: { flex: 1, fontSize: 14.5 },
-    loadingBar: {
-        position: "absolute",
-        bottom: 0,
-        left: 12,
-        right: 12,
-        height: 2,
-        overflow: "hidden",
-        borderRadius: 1,
-    },
-    loadingBarFill: { height: "100%", width: "60%", opacity: 0.7 },
-
     // Tabs
     tabs: { flexDirection: "row", borderBottomWidth: 1 },
     tab: {
@@ -600,7 +583,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         gap: 6,
-        height: 40,
+        height: 44,
         borderBottomWidth: 0,
         borderBottomColor: "transparent",
     },
